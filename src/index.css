@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@layer base {
+  html.dark body {
+    background-color: #0f172a; /* bg-slate-900 - Smooth dark slate */
+    color: #f8fafc; /* text-slate-50 */
+  }
+
+  html.light body {
+    background-color: #f8fafc; /* bg-slate-50 */
+    color: #0f172a; /* text-slate-900 */
+  }
+}
+
+/* =========================================================
+   DARK THEME SMOOTHING OVERRIDES
+   ========================================================= */
+html.dark .bg-slate-950 {
+  background-color: #0b0f19 !important;
+}
+
+html.dark .bg-slate-950\/90,
+html.dark .bg-slate-950\/80,
+html.dark .bg-slate-950\/60 {
+  background-color: #111827 !important;
+}
+
+html.dark .bg-slate-900\/90,
+html.dark .bg-slate-900\/80,
+html.dark .bg-slate-900\/60,
+html.dark .bg-slate-900 {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark .border-slate-800,
+html.dark .border-slate-800\/80,
+html.dark .border-slate-800\/60 {
+  border-color: #334155 !important;
+}
+
+/* =========================================================
+   LIGHT THEME CONTRAST & VISIBILITY FIXES
+   ========================================================= */
+html.light .bg-slate-900\/90,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+}
+
+html.light .bg-slate-950\/90,
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/60,
+html.light .bg-slate-950\/40,
+html.light .bg-slate-950 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html.light .border-slate-800,
+html.light .border-slate-800\/80,
+html.light .border-slate-800\/60 {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-slate-800\/40 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+html.light .text-slate-400,
+html.light .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Fix text contrast in light mode while preserving white text on colored buttons */
+html.light h1.text-white,
+html.light h2.text-white,
+html.light h3.text-white,
+html.light p.text-white,
+html.light div.text-white {
+  color: #0f172a;
+}
+
+html.light .text-slate-200,
+html.light .text-slate-300 {
+  color: #1e293b;
+}
+
+/* Ensure buttons with colored backgrounds retain readable white text in Light Mode */
+html.light .bg-indigo-600,
+html.light .bg-purple-600,
+html.light .bg-emerald-600,
+html.light .bg-blue-600,
+html.light .bg-gradient-to-r,
+html.light button.bg-indigo-600,
+html.light button.bg-purple-600,
+html.light button.bg-emerald-600 {
+  color: #ffffff !important;
+}
+
+html.light .bg-indigo-600 *,
+html.light .bg-purple-600 *,
+html.light .bg-emerald-600 *,
+html.light .bg-blue-600 *,
+html.light button.bg-indigo-600 *,
+html.light button.bg-purple-600 *,
+html.light button.bg-emerald-600 * {
+  color: #ffffff !important;
+}
+
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
+}
