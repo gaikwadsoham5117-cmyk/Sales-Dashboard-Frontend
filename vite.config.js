@@ -14,7 +14,7 @@ export default defineConfig({
 
     proxy: {
       '/api': {
-        target: 'http://localhost:8088',
+        target: 'https://sales-dashboard-backend-lo96.onrender.com' /*'http://localhost:8088'*/,
         changeOrigin: true,
         secure: false,
       }
