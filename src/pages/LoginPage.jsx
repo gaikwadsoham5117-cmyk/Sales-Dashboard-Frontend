@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { loginApi } from '../api/authApi';
+import { useNavigate } from 'react-router-dom';
 import { Database, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 
-export default function LoginPage({ onNavigateForgotPassword }) {
-  const { login, useMock } = useAuth();
+export default function LoginPage() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,8 +18,15 @@ export default function LoginPage({ onNavigateForgotPassword }) {
     setLoading(true);
 
     try {
-      const res = await loginApi({ email, password }, useMock);
+      const res = await loginApi({ email, password });
       login(res.token, res.role, res.user);
+
+      // Redirect based on role
+      const role = res.role;
+      if (role === 'ADMIN') navigate('/admin', { replace: true });
+      else if (role === 'OWNER') navigate('/owner', { replace: true });
+      else if (role === 'EMPLOYEE') navigate('/employee', { replace: true });
+      else navigate('/login', { replace: true });
     } catch (err) {
       setError(typeof err === 'string' ? err : err.message || 'Login failed. Please check credentials.');
     } finally {
@@ -88,7 +97,7 @@ export default function LoginPage({ onNavigateForgotPassword }) {
                 </label>
                 <button
                   type="button"
-                  onClick={onNavigateForgotPassword}
+                  onClick={() => navigate('/forgot-password')}
                   className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium transition-colors"
                 >
                   Forgot password?

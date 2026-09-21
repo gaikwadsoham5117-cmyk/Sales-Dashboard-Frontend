@@ -14,7 +14,7 @@ const axiosClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 15000,
 });
 
 // Attach JWT token
@@ -38,21 +38,30 @@ axiosClient.interceptors.response.use(
     if (error.response) {
       const status = error.response.status;
 
-      if (status === 403) {
+      if (status === 401) {
+        // Clear auth state and redirect to login
+        localStorage.removeItem('tally_auth_token');
+        localStorage.removeItem('tally_auth_role');
+        localStorage.removeItem('tally_auth_user');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(
-          new Error(
-            'Access Forbidden (403): Backend requires valid JWT authorization. Please log in with valid credentials.'
-          )
+          new Error('Your session has expired. Please log in again.')
         );
       }
 
-      if (status === 401) {
+      if (status === 403) {
         return Promise.reject(
-          new Error(
-            'Unauthorized (401): Invalid or expired JWT token. Please sign in again.'
-          )
+          new Error('You do not have permission to perform this action.')
         );
       }
+    }
+
+    if (!error.response) {
+      return Promise.reject(
+        new Error('Unable to connect to the server. Please try again.')
+      );
     }
 
     return Promise.reject(error);

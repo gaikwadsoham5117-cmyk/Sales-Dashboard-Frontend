@@ -1,35 +1,35 @@
 import React from 'react';
 import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  AreaChart,
-  Area
+  ResponsiveContainer, PieChart, Pie, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  AreaChart, Area, Legend,
 } from 'recharts';
 import { formatCurrency, formatReadableDate } from '../../utils/formatters';
 
-const COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4'];
+// Professional 6-color palette — restrained, no neon
+const CHART_COLORS = ['#2563EB', '#64748B', '#16A34A', '#D97706', '#DC2626', '#0284C7'];
+
+// Chart container shared classes
+const cardClass =
+  'bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm flex flex-col';
+
+const chartTitle = 'text-sm font-semibold text-gray-800 dark:text-gray-100';
+const chartSubtitle = 'text-xs text-gray-400 dark:text-gray-500 mt-0.5';
+
+const axisStyle = { fill: '#9CA3AF', fontSize: 11 };
 
 export default function ChartsSection({ vouchers = [] }) {
-  // 1. Prepare Party Ledger Sales Data
+  // 1. Party Ledger data
   const partyMap = {};
   vouchers.forEach((v) => {
     const party = v.partyLedgerName || 'Unknown';
     partyMap[party] = (partyMap[party] || 0) + (Number(v.totalAmount) || 0);
   });
-  const partyChartData = Object.keys(partyMap).map((name) => ({
-    name,
-    amount: partyMap[name]
-  })).sort((a, b) => b.amount - a.amount);
+  const partyChartData = Object.keys(partyMap)
+    .map((name) => ({ name, amount: partyMap[name] }))
+    .sort((a, b) => b.amount - a.amount);
 
-  // 2. Prepare Item Breakdown Data
+  // 2. Item Breakdown data
   const itemMap = {};
   vouchers.forEach((v) => {
     (v.items || []).forEach((item) => {
@@ -37,31 +37,26 @@ export default function ChartsSection({ vouchers = [] }) {
       itemMap[name] = (itemMap[name] || 0) + (Number(item.amount) || 0);
     });
   });
-  const itemChartData = Object.keys(itemMap).map((name) => ({
-    name,
-    amount: itemMap[name]
-  })).sort((a, b) => b.amount - a.amount);
+  const itemChartData = Object.keys(itemMap)
+    .map((name) => ({ name, amount: itemMap[name] }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 8);
 
-  // 3. Prepare Date Timeline Data
+  // 3. Date Timeline data
   const dateMap = {};
   vouchers.forEach((v) => {
     const dateFormatted = formatReadableDate(v.date);
     dateMap[dateFormatted] = (dateMap[dateFormatted] || 0) + (Number(v.totalAmount) || 0);
   });
-  const trendChartData = Object.keys(dateMap).map((date) => ({
-    date,
-    sales: dateMap[date]
-  }));
+  const trendChartData = Object.keys(dateMap).map((date) => ({ date, sales: dateMap[date] }));
 
-  // Custom tooltip formatter
+  // Shared tooltip
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-slate-900/95 border border-slate-700/80 p-3 rounded-xl shadow-xl text-xs">
-          <p className="font-semibold text-slate-200 mb-1">{label || payload[0].name}</p>
-          <p className="text-emerald-400 font-bold">
-            {formatCurrency(payload[0].value)}
-          </p>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2.5 rounded-lg shadow-lg text-xs">
+          <p className="font-semibold text-gray-700 dark:text-gray-200 mb-1">{label || payload[0].name}</p>
+          <p className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(payload[0].value)}</p>
         </div>
       );
     }
@@ -69,87 +64,109 @@ export default function ChartsSection({ vouchers = [] }) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-6">
-      {/* 1. Party Ledger Share (Donut Chart) */}
-      <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-800 flex flex-col justify-between shadow-lg">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 my-5">
+
+      {/* 1. Party Ledger Donut */}
+      <div className={cardClass}>
         <div>
-          <h3 className="text-sm font-bold text-slate-200 tracking-wide">
-            Sales by Party Ledger
-          </h3>
-          <p className="text-xs text-slate-400">Revenue split across clients</p>
+          <h3 className={chartTitle}>Sales by Party Ledger</h3>
+          <p className={chartSubtitle}>Revenue split across clients</p>
         </div>
-        <div className="h-64 mt-4 w-full">
+        <div className="h-60 mt-4 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={partyChartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={85}
-                paddingAngle={4}
+                cx="50%" cy="45%"
+                innerRadius={52} outerRadius={82}
+                paddingAngle={3}
                 dataKey="amount"
+                strokeWidth={0}
               >
-                {partyChartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {partyChartData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend
                 verticalAlign="bottom"
-                height={36}
-                formatter={(value) => <span className="text-xs text-slate-300">{value}</span>}
+                height={32}
+                formatter={(value) => (
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">{value}</span>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 2. Top Stock Items Revenue (Bar Chart) */}
-      <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-800 flex flex-col justify-between shadow-lg">
+      {/* 2. Top Stock Items Bar */}
+      <div className={cardClass}>
         <div>
-          <h3 className="text-sm font-bold text-slate-200 tracking-wide">
-            Top Stock Items Revenue
-          </h3>
-          <p className="text-xs text-slate-400">Highest grossing inventory items</p>
+          <h3 className={chartTitle}>Top Stock Items Revenue</h3>
+          <p className={chartSubtitle}>Highest grossing inventory items</p>
         </div>
-        <div className="h-64 mt-4 w-full">
+        <div className="h-60 mt-4 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={itemChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <XAxis dataKey="name" stroke="#64748B" fontSize={11} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                {itemChartData.map((entry, index) => (
-                  <Cell key={`cell-bar-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
+            <BarChart data={itemChartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" className="dark:stroke-gray-700" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={axisStyle}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={axisStyle}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `₹${v >= 100000 ? (v / 100000).toFixed(1) + 'L' : (v / 1000).toFixed(0) + 'k'}`}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(37,99,235,0.04)' }} />
+              <Bar dataKey="amount" fill="#2563EB" radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 3. Sales Trend Over Dates (Area Chart) */}
-      <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border border-slate-800 flex flex-col justify-between shadow-lg">
+      {/* 3. Sales Timeline Area */}
+      <div className={cardClass}>
         <div>
-          <h3 className="text-sm font-bold text-slate-200 tracking-wide">
-            Sales Turnover Timeline
-          </h3>
-          <p className="text-xs text-slate-400">Voucher date trend analysis</p>
+          <h3 className={chartTitle}>Sales Turnover Timeline</h3>
+          <p className={chartSubtitle}>Voucher date trend analysis</p>
         </div>
-        <div className="h-64 mt-4 w-full">
+        <div className="h-60 mt-4 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trendChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={trendChartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#2563EB" stopOpacity={0.10} />
+                  <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="date" stroke="#64748B" fontSize={10} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" className="dark:stroke-gray-700" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ ...axisStyle, fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={axisStyle}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => `₹${v >= 100000 ? (v / 100000).toFixed(1) + 'L' : (v / 1000).toFixed(0) + 'k'}`}
+              />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="sales" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
+              <Area
+                type="monotone"
+                dataKey="sales"
+                stroke="#2563EB"
+                strokeWidth={2}
+                fill="url(#salesGrad)"
+                dot={false}
+                activeDot={{ r: 4, fill: '#2563EB', stroke: '#fff', strokeWidth: 2 }}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>

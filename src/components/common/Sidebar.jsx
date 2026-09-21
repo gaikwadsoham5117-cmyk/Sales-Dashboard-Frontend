@@ -1,96 +1,139 @@
 import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Users, UserPlus, ShieldCheck, Server } from 'lucide-react';
+import {
+  LayoutDashboard, Users, Building2, CreditCard,
+  Server, BarChart3, UserPlus, LogOut,
+} from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
-  const { role } = useAuth();
-  const isAdmin = role === 'ADMIN';
+export default function Sidebar() {
+  const { role, user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const displayName = user?.firstName
+    ? `${user.firstName} ${user.lastName || ''}`.trim()
+    : user?.email || 'User';
+
+  const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
+
+  const linkClass = ({ isActive }) =>
+    `w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] font-medium transition-all duration-150 text-left ${
+      isActive
+        ? 'bg-blue-600 text-white'
+        : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
+    }`;
 
   return (
-    <aside className="w-full md:w-64 bg-slate-900/60 border-r border-slate-800 p-4 flex flex-col justify-between shrink-0">
-      <div className="space-y-6">
-        {/* Navigation Section */}
-        <div>
-          <p className="px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
-            {isAdmin ? 'Admin Portal Navigation' : 'User Portal Navigation'}
+    <aside
+      className="w-full md:w-[220px] flex-shrink-0 flex flex-col justify-between"
+      style={{ backgroundColor: '#172033', minHeight: '100%' }}
+    >
+      {/* Top navigation */}
+      <div>
+        {/* Nav items */}
+        <nav className="px-3 pt-4 pb-2 space-y-0.5">
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
+            {role === 'ADMIN' ? 'Administration' : 'Navigation'}
           </p>
-          
-          <nav className="space-y-1">
-            {isAdmin ? (
-              /* ADMIN ONLY SEE USER MANAGEMENT */
-              <>
-                <button
-                  onClick={() => setActiveTab('user-management')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
-                    activeTab === 'user-management'
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  <span>User Directory</span>
-                </button>
 
-                <button
-                  onClick={() => setActiveTab('register-user')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
-                    activeTab === 'register-user'
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Register User</span>
-                </button>
-              </>
-            ) : (
-              /* USER ONLY SEES SALES DASHBOARD */
-              <>
-                <button
-                  onClick={() => setActiveTab('sales-dashboard')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
-                    activeTab === 'sales-dashboard'
-                      ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/20'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Sales Dashboard</span>
-                </button>
+          {role === 'ADMIN' && (
+            <>
+              <NavLink to="/admin" end className={linkClass}>
+                <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Dashboard</span>
+              </NavLink>
 
-                <button
-                  onClick={() => setActiveTab('tally-agent')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
-                    activeTab === 'tally-agent'
-                      ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-600/20'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Server className="w-4 h-4" />
-                  <span>Tally Agent</span>
-                </button>
-              </>
-            )}
-          </nav>
-        </div>
+              <p className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
+                Management
+              </p>
+
+              <NavLink to="/admin/owners" className={linkClass}>
+                <Users className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Owners</span>
+              </NavLink>
+
+              <NavLink to="/admin/organizations" className={linkClass}>
+                <Building2 className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Organizations</span>
+              </NavLink>
+
+              <NavLink to="/admin/subscriptions" className={linkClass}>
+                <CreditCard className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Subscriptions</span>
+              </NavLink>
+            </>
+          )}
+
+          {role === 'OWNER' && (
+            <>
+              <NavLink to="/owner" end className={linkClass}>
+                <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Dashboard</span>
+              </NavLink>
+
+              <NavLink to="/owner/sales" className={linkClass}>
+                <BarChart3 className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Sales Data</span>
+              </NavLink>
+
+              <p className="px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
+                Management
+              </p>
+
+              <NavLink to="/owner/employees" className={linkClass}>
+                <UserPlus className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Employees</span>
+              </NavLink>
+
+              <NavLink to="/owner/agent-setup" className={linkClass}>
+                <Server className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Agent Setup</span>
+              </NavLink>
+            </>
+          )}
+
+          {role === 'EMPLOYEE' && (
+            <>
+              <NavLink to="/employee" end className={linkClass}>
+                <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Dashboard</span>
+              </NavLink>
+
+              <NavLink to="/employee/sales" className={linkClass}>
+                <BarChart3 className="w-[15px] h-[15px] flex-shrink-0" />
+                <span>Sales Data</span>
+              </NavLink>
+            </>
+          )}
+        </nav>
       </div>
 
-      {/* System Status info */}
-      <div className="pt-4 border-t border-slate-800/80">
-        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[11px] font-semibold text-slate-300">
-              {isAdmin ? 'User Admin Mode' : 'Tally Live Mode'}
-            </span>
+      {/* Bottom: user info + logout */}
+      <div className="px-3 pb-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* User info */}
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md mb-1">
+          <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+            {initials}
           </div>
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            {isAdmin ? 'System Account Administration' : 'Tally Prime API Connector v2.4'}
-          </p>
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold text-white truncate leading-tight">{displayName}</p>
+            <p className="text-[10px] text-slate-500">{role}</p>
+          </div>
         </div>
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-left"
+        >
+          <LogOut className="w-[15px] h-[15px] flex-shrink-0" />
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
   );

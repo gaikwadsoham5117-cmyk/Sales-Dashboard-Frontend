@@ -10,18 +10,15 @@ export async function getMyAgentsApi() {
   }
 }
 
-
 export async function createAgentApi(agentName) {
   try {
-    const response = await axiosClient.post('/api/agents', { agentName });
-    return response.data; // { id, agentId, userId, agentKey, agentName, status, ... }
+    const response = await axiosClient.post('/api/agents/create/organization', { agentName });
+    return response.data;
   } catch (err) {
     const msg = err.response?.data?.message || err.response?.data || err.message || 'Unable to create agent.';
     throw new Error(typeof msg === 'string' ? msg : 'Unable to create agent.');
   }
 }
-
-
 
 export async function downloadAgentSeparateFiles(agentId) {
   const jarBuffer = await fetchAgentJarApi();
@@ -43,15 +40,13 @@ export async function fetchAgentJarApi() {
   }
 }
 
-// GET /api/agents/{agentId}/config -> plain text agent.properties, pre-filled
-// for this specific agent.
 export async function fetchAgentConfigTextApi(agentId) {
   try {
-    const response = await axiosClient.get(`/api/agents/${agentId}/config`, {
+    const response = await axiosClient.get(`/api/agents/organization/${agentId}/config`, {
       responseType: 'text',
-      transformResponse: [(data) => data], // keep as raw text, don't let axios try to JSON-parse it
+      transformResponse: [(data) => data],
     });
-    return response.data; // string
+    return response.data;
   } catch (err) {
     const msg = err.response?.status === 404
       ? 'Agent not found, or it does not belong to this account.'
@@ -60,9 +55,6 @@ export async function fetchAgentConfigTextApi(agentId) {
   }
 }
 
-// Triggers the browser's normal "Save As" download behavior for a Blob we
-// already fetched with the Authorization header attached - a plain <a href>
-// can't do this part, since it can't send auth headers.
 export function triggerBrowserDownload(blob, filename) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -74,21 +66,10 @@ export function triggerBrowserDownload(blob, filename) {
   window.URL.revokeObjectURL(url);
 }
 
-// True only in browsers that support picking/writing to a real folder on
-// disk (Chrome, Edge - not Firefox/Safari as of this writing).
 export function supportsDirectPcSetup() {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 }
 
-// The one-click flow: user picks (or creates) a folder ONCE via the native
-// Windows dialog, we write tally-agent.jar and agent.properties straight
-// into it - no separate downloads, no manually moving files into place.
-//
-// Browser security means we can't silently pick "C:\TallyAgent" for them
-// or create it without their involvement - showDirectoryPicker always
-// requires a real user gesture and a folder they explicitly select/create
-// in the dialog. This is the closest a website can legally get to "auto
-// setup" without a native installer.
 export async function setupAgentOnThisPc(agentId, onProgress) {
   if (!supportsDirectPcSetup()) {
     throw new Error(
@@ -98,7 +79,6 @@ export async function setupAgentOnThisPc(agentId, onProgress) {
 
   onProgress?.('Waiting for folder selection...');
 
-  // User navigates to (or creates) e.g. C:\TallyAgent in this native picker.
   const dirHandle = await window.showDirectoryPicker({
     id: 'tally-agent-folder',
     mode: 'readwrite',
@@ -123,5 +103,5 @@ export async function setupAgentOnThisPc(agentId, onProgress) {
   await configWritable.write(configText);
   await configWritable.close();
 
-  return dirHandle.name; // folder name, for the success message
+  return dirHandle.name;
 }

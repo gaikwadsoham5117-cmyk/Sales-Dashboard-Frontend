@@ -70,7 +70,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('tally_auth_token');
     localStorage.removeItem('tally_auth_role');
     localStorage.removeItem('tally_auth_user');
-    localStorage.removeItem('tally_use_mock');
   };
 
   return (

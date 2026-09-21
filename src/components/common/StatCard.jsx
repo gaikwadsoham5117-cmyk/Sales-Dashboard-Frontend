@@ -1,64 +1,79 @@
 import React from 'react';
 
-export default function StatCard({ title, value, trend, trendLabel, subtext, icon: Icon, colorTheme = 'blue' }) {
-  const themeMap = {
-    blue: {
-      border: 'border-blue-500/20 hover:border-blue-500/40',
-      gradient: 'from-blue-600/10 via-indigo-600/5 to-transparent',
-      iconBg: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-      valueColor: 'text-white'
-    },
-    emerald: {
-      border: 'border-emerald-500/20 hover:border-emerald-500/40',
-      gradient: 'from-emerald-600/10 via-teal-600/5 to-transparent',
-      iconBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-      valueColor: 'text-emerald-300'
-    },
-    purple: {
-      border: 'border-purple-500/20 hover:border-purple-500/40',
-      gradient: 'from-purple-600/10 via-violet-600/5 to-transparent',
-      iconBg: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-      valueColor: 'text-purple-300'
-    },
-    amber: {
-      border: 'border-amber-500/20 hover:border-amber-500/40',
-      gradient: 'from-amber-600/10 via-orange-600/5 to-transparent',
-      iconBg: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      valueColor: 'text-amber-300'
-    }
-  };
+const themeMap = {
+  blue: {
+    iconBg: 'bg-blue-50 dark:bg-blue-900/20',
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    trendBg: 'bg-blue-50 dark:bg-blue-900/20',
+    trendText: 'text-blue-700 dark:text-blue-300',
+  },
+  green: {
+    iconBg: 'bg-green-50 dark:bg-green-900/20',
+    iconColor: 'text-green-600 dark:text-green-400',
+    trendBg: 'bg-green-50 dark:bg-green-900/20',
+    trendText: 'text-green-700 dark:text-green-300',
+  },
+  amber: {
+    iconBg: 'bg-amber-50 dark:bg-amber-900/20',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    trendBg: 'bg-amber-50 dark:bg-amber-900/20',
+    trendText: 'text-amber-700 dark:text-amber-300',
+  },
+  red: {
+    iconBg: 'bg-red-50 dark:bg-red-900/20',
+    iconColor: 'text-red-600 dark:text-red-400',
+    trendBg: 'bg-red-50 dark:bg-red-900/20',
+    trendText: 'text-red-700 dark:text-red-300',
+  },
+  neutral: {
+    iconBg: 'bg-gray-100 dark:bg-gray-700',
+    iconColor: 'text-gray-600 dark:text-gray-300',
+    trendBg: 'bg-gray-100 dark:bg-gray-700',
+    trendText: 'text-gray-600 dark:text-gray-300',
+  },
+  // Legacy aliases
+  purple:  'blue',
+  emerald: 'green',
+};
 
-  const theme = themeMap[colorTheme] || themeMap.blue;
+function resolveTheme(colorTheme) {
+  const resolved = themeMap[colorTheme];
+  if (typeof resolved === 'string') return themeMap[resolved];
+  return resolved || themeMap.blue;
+}
+
+export default function StatCard({ title, value, trend, trendLabel, subtext, icon: Icon, colorTheme = 'blue' }) {
+  const t = resolveTheme(colorTheme);
 
   return (
-    <div className={`relative overflow-hidden bg-slate-900/80 backdrop-blur-md rounded-2xl p-5 border ${theme.border} bg-gradient-to-br ${theme.gradient} transition-all duration-300 shadow-lg`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2.5">
             {title}
           </p>
-          <h3 className={`text-2xl lg:text-3xl font-extrabold tracking-tight ${theme.valueColor} mt-1`}>
+          <p className="text-2xl lg:text-[28px] font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-none">
             {value}
-          </h3>
+          </p>
         </div>
         {Icon && (
-          <div className={`p-2.5 rounded-xl border ${theme.iconBg} shadow-inner`}>
-            <Icon className="w-5 h-5" />
+          <div className={`p-2.5 rounded-lg flex-shrink-0 ${t.iconBg}`}>
+            <Icon className={`w-5 h-5 ${t.iconColor}`} />
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex items-center gap-2 flex-wrap text-xs">
+      <div className="mt-3.5 flex items-center gap-2 text-xs">
         {trend && (
-          <span className="inline-flex items-center gap-1 font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+          <span className={`inline-flex items-center font-semibold px-2 py-0.5 rounded-md ${t.trendBg} ${t.trendText}`}>
             {trend}
           </span>
         )}
         {trendLabel && (
-          <span className="text-slate-400 font-medium">{trendLabel}</span>
+          <span className="text-gray-400 dark:text-gray-500">{trendLabel}</span>
         )}
         {!trend && subtext && (
-          <span className="text-slate-400 font-medium">{subtext}</span>
+          <span className="text-gray-400 dark:text-gray-500">{subtext}</span>
         )}
       </div>
     </div>

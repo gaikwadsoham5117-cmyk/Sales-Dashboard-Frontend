@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { forgotPasswordApi, resetPasswordApi } from '../api/authApi';
+import { useNavigate } from 'react-router-dom';
 import { KeyRound, Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function ForgotPasswordPage({ onBackToLogin }) {
-  const [step, setStep] = useState(1); // 1 = request reset code, 2 = submit new password
+export default function ForgotPasswordPage() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -46,7 +48,7 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
       const res = await resetPasswordApi(payload);
       setMessage(res.message || 'Password reset successfully! Redirecting to login...');
       setTimeout(() => {
-        onBackToLogin();
+        navigate('/login');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Password reset failed. Verify reset code.');
@@ -59,7 +61,7 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
     <div className="min-h-screen bg-slate-900 dark:bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
       <div className="w-full max-w-md relative z-10">
         <button
-          onClick={onBackToLogin}
+          onClick={() => navigate('/login')}
           className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
