@@ -30,11 +30,11 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="w-full md:w-[220px] flex-shrink-0 flex flex-col justify-between"
-      style={{ backgroundColor: '#172033', minHeight: '100%' }}
+      className="w-full md:w-[220px] flex-shrink-0 flex flex-col h-full"
+      style={{ backgroundColor: '#172033' }}
     >
-      {/* Top navigation */}
-      <div>
+      {/* Top navigation — scrolls if needed */}
+      <div className="flex-1 overflow-y-auto">
         {/* Nav items */}
         <nav className="px-3 pt-4 pb-2 space-y-0.5">
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 select-none">
