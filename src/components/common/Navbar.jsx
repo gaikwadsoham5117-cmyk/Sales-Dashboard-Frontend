@@ -32,12 +32,11 @@ export default function Navbar() {
 
         {/* Left: Branding */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center">
-            <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-              <polyline points="9 22 9 12 15 12 15 22"/>
-            </svg>
-          </div>
+          <img
+            src="/logo1-removebg-preview.png"
+            alt="Logo"
+            className="h-9 w-9 object-contain"
+          />
           <div className="flex items-baseline gap-2">
             <span className="font-bold text-sm text-gray-900 dark:text-gray-100 tracking-tight">
               Tally Sales Analytics
