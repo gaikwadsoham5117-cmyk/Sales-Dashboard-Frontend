@@ -207,8 +207,6 @@ export default function UserDashboard() {
         </div>
       ) : (
         <>
-          <KPIOverview vouchers={filteredVouchers} />
-          <ChartsSection vouchers={filteredVouchers} />
           <VoucherFilters
             filters={filters}
             setFilters={setFilters}
@@ -216,6 +214,8 @@ export default function UserDashboard() {
             itemOptions={itemOptions}
             resetFilters={resetFilters}
           />
+          <KPIOverview vouchers={filteredVouchers} />
+          <ChartsSection vouchers={filteredVouchers} />
           <SalesVoucherTable vouchers={filteredVouchers} />
         </>
       )}
