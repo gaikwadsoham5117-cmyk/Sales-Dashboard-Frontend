@@ -9,6 +9,7 @@ import {
   updateSubscriptionApi, 
   deleteSubscriptionApi 
 } from '../../api/subscriptionApi';
+import CustomSelect from '../../components/common/CustomSelect';
 
 export default function SubscriptionManagement() {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -292,15 +293,14 @@ export default function SubscriptionManagement() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1.5">Status</label>
-                <select 
-                  name="status"
+                <CustomSelect
                   value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50"
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                </select>
+                  onChange={(val) => handleInputChange({ target: { name: 'status', value: val } })}
+                  options={[
+                    { value: 'ACTIVE',   label: 'ACTIVE' },
+                    { value: 'INACTIVE', label: 'INACTIVE' },
+                  ]}
+                />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/60 mt-6">

@@ -11,13 +11,10 @@ export async function loginApi({ email, password }) {
   } catch (err) {
     const msg =
       err.response?.data?.message ||
-      err.response?.data ||
       err.message ||
       'Login failed. Please check your credentials or server connectivity.';
 
-    throw typeof msg === 'string'
-      ? msg
-      : 'Login failed. Please check credentials.';
+    throw new Error(typeof msg === 'string' ? msg : 'Login failed. Please check credentials.');
   }
 }
 

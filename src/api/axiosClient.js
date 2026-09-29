@@ -39,13 +39,17 @@ axiosClient.interceptors.response.use(
       const status = error.response.status;
 
       if (status === 401) {
-        // Clear auth state and redirect to login
+        // On the login page, let the error propagate naturally so the
+        // backend's "Invalid email or password" message is shown to the user.
+        if (window.location.pathname === '/login') {
+          return Promise.reject(error);
+        }
+
+        // For all other pages, clear auth state and redirect to login.
         localStorage.removeItem('tally_auth_token');
         localStorage.removeItem('tally_auth_role');
         localStorage.removeItem('tally_auth_user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+        window.location.href = '/login';
         return Promise.reject(
           new Error('Your session has expired. Please log in again.')
         );

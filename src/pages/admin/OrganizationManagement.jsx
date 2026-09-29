@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Building2, RefreshCw, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { getAllOrganizationsApi, createOrganizationApi, updateOrganizationApi, deleteOrganizationApi } from '../../api/organizationApi';
 import { getAllSubscriptionsApi } from '../../api/subscriptionApi';
+import CustomSelect from '../../components/common/CustomSelect';
 
 export default function OrganizationManagement() {
   const [organizations, setOrganizations] = useState([]);
@@ -49,7 +50,7 @@ export default function OrganizationManagement() {
       });
       setSubscriptionMap(subMap);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to load data. Please try again.');
+      setError(err.message || 'Failed to load data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +78,7 @@ export default function OrganizationManagement() {
     const id = org.id || org._id || org.organizationId;
     setSelectedOrgId(id);
     setFormData({
-      organizationName: org.organizationName || '',
+      organizationName: org.organizationName || org.name || org.orgName || '',
       subscriptionId: org.subscriptionId || ''
     });
     setIsModalOpen(true);
@@ -122,7 +123,7 @@ export default function OrganizationManagement() {
       closeModal();
       fetchData();
     } catch (err) {
-      setError(err?.response?.data?.message || `Failed to ${modalMode} organization.`);
+      setError(err.message || `Failed to ${modalMode} organization.`);
     } finally {
       setActionLoading(false);
     }
@@ -138,7 +139,7 @@ export default function OrganizationManagement() {
       closeModal();
       fetchData();
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to delete organization.');
+      setError(err.message || 'Failed to delete organization.');
     } finally {
       setActionLoading(false);
     }
@@ -233,7 +234,7 @@ export default function OrganizationManagement() {
                   return (
                     <tr key={orgId} className="hover:bg-slate-800/40 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-200">
-                        {org.organizationName}
+                        {org.organizationName || org.name || org.orgName || <span className="text-slate-500 italic">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -312,27 +313,19 @@ export default function OrganizationManagement() {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="subscriptionId" className="block text-xs font-medium text-slate-300">
+                <label className="block text-xs font-medium text-slate-300">
                   Subscription Plan <span className="text-rose-400">*</span>
                 </label>
-                <select
-                  id="subscriptionId"
-                  name="subscriptionId"
-                  value={formData.subscriptionId}
-                  onChange={handleInputChange}
-                  className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                <CustomSelect
                   required
-                >
-                  <option value="" disabled>Select a subscription plan</option>
-                  {subscriptions.map(sub => {
+                  value={formData.subscriptionId}
+                  onChange={(val) => handleInputChange({ target: { name: 'subscriptionId', value: val } })}
+                  placeholder="Select a subscription plan"
+                  options={subscriptions.map(sub => {
                     const id = sub.id || sub._id || sub.subscriptionId;
-                    return (
-                      <option key={id} value={id}>
-                        {sub.planName} ({sub.maxUsers || 0} users)
-                      </option>
-                    );
+                    return { value: id, label: `${sub.planName} (${sub.maxUsers || 0} users)` };
                   })}
-                </select>
+                />
               </div>
 
               <div className="pt-4 mt-6 flex items-center justify-end gap-3 border-t border-slate-800">

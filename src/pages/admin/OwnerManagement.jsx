@@ -7,6 +7,7 @@ import { getAllUsersApi, getUserByIdApi, updateUserApi } from '../../api/adminAp
 import { registerOwnerApi } from '../../api/ownerApi';
 import { getAllOrganizationsApi } from '../../api/organizationApi';
 import { getAllSubscriptionsApi } from '../../api/subscriptionApi';
+import CustomSelect from '../../components/common/CustomSelect';
 
 export default function OwnerManagement() {
   const [owners, setOwners] = useState([]);
@@ -59,7 +60,7 @@ export default function OwnerManagement() {
       
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch data. Please try again.');
+      setError(err.message || 'Failed to fetch data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,9 @@ export default function OwnerManagement() {
 
   const orgMap = useMemo(() => {
     return organizations.reduce((acc, org) => {
-      acc[org.id] = org;
+      // Index by all possible ID fields so lookups never miss
+      const ids = [org.id, org._id, org.organizationId].filter(Boolean);
+      ids.forEach(id => { acc[id] = org; });
       return acc;
     }, {});
   }, [organizations]);
@@ -103,7 +106,7 @@ export default function OwnerManagement() {
       fetchData();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to create owner');
+      setError(err.message || 'Failed to create owner');
       setLoading(false);
     }
   };
@@ -129,7 +132,7 @@ export default function OwnerManagement() {
       fetchData();
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to update owner');
+      setError(err.message || 'Failed to update owner');
       setLoading(false);
     }
   };
@@ -248,7 +251,9 @@ export default function OwnerManagement() {
                         {org ? (
                           <div className="flex items-center gap-2">
                             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                            {org.organizationName}
+                            <span className="text-slate-200 text-xs">
+                              {org.organizationName || org.name || org.orgName || '—'}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-slate-500">None</span>
@@ -318,6 +323,12 @@ export default function OwnerManagement() {
             
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="createOwnerForm" onSubmit={handleCreateSubmit} className="space-y-4">
+                {error && isCreateModalOpen && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-300">First Name <span className="text-rose-500">*</span></label>
@@ -394,17 +405,16 @@ export default function OwnerManagement() {
                 <div className="space-y-3 pt-3 border-t border-slate-800">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-300">Assign Organization <span className="text-rose-500">*</span></label>
-                    <select
-                      required
-                      value={formData.organizationId}
-                      onChange={e => setFormData({...formData, organizationId: e.target.value})}
-                      className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                    >
-                      <option value="">Select Organization</option>
-                      {organizations.map(org => (
-                        <option key={org.id} value={org.id}>{org.organizationName}</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                        required
+                        value={formData.organizationId}
+                        onChange={(val) => setFormData({ ...formData, organizationId: val })}
+                        placeholder="Select Organization"
+                        options={organizations.map(org => ({
+                          value: org.id || org._id || org.organizationId,
+                          label: org.organizationName || org.name || org.orgName || 'Unnamed Organization'
+                        }))}
+                    />
                   </div>
 
                   {selectedOrgDetails && (
@@ -476,7 +486,13 @@ export default function OwnerManagement() {
             
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="editOwnerForm" onSubmit={handleEditSubmit} className="space-y-4">
-                
+                {error && isEditModalOpen && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
                 {/* Readonly Info */}
                 <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/80 mb-6 space-y-3">
                   <div className="flex justify-between text-xs">
@@ -540,16 +556,16 @@ export default function OwnerManagement() {
 
                 <div className="space-y-1.5 pt-2">
                   <label className="text-xs font-medium text-slate-300">Status</label>
-                  <select
+                  <CustomSelect
                     value={formData.status}
-                    onChange={e => setFormData({...formData, status: e.target.value})}
-                    className="w-full bg-slate-950/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                  >
-                    <option value="TRIAL">TRIAL</option>
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="INACTIVE">INACTIVE</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                  </select>
+                    onChange={(val) => setFormData({ ...formData, status: val })}
+                    options={[
+                      { value: 'TRIAL',     label: 'TRIAL' },
+                      { value: 'ACTIVE',    label: 'ACTIVE' },
+                      { value: 'INACTIVE',  label: 'INACTIVE' },
+                      { value: 'SUSPENDED', label: 'SUSPENDED' },
+                    ]}
+                  />
                 </div>
               </form>
             </div>

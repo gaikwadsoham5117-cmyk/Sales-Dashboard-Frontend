@@ -18,3 +18,23 @@ export async function createEmployeeApi(data) {
     throw new Error(msg);
   }
 }
+
+export async function changeEmployeeStatusApi(employeeId, enabled) {
+  try {
+    const response = await axiosClient.put(`/api/employees/${employeeId}/status`, { enabled });
+    return response.data;
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message || 'Failed to update employee status.';
+    throw new Error(msg);
+  }
+}
+
+export async function deleteEmployeeApi(employeeId) {
+  try {
+    const response = await axiosClient.delete(`/api/employees/${employeeId}`);
+    return response.data;
+  } catch (err) {
+    const msg = err.response?.data?.message || err.message || 'Failed to delete employee.';
+    throw new Error(msg);
+  }
+}
