@@ -103,16 +103,32 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                           {voucher?.voucherTypeName || '—'}
                         </span>
                       </td>
-                      <td className={`${tdBase} font-semibold text-blue-600 dark:text-blue-400 font-mono`}>
-                        #{voucher?.voucherNumber || '—'}
+                      <td className={`${tdBase}`}>
+                        <div className="flex flex-col font-mono">
+                          <span className="font-semibold text-blue-600 dark:text-blue-400">
+                            #{voucher?.voucherNumber || '—'}
+                          </span>
+                          {voucher?.reference ? (
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-sans truncate" title={`Ref: ${voucher.reference}`}>
+                              Ref: {voucher.reference}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className={`${tdBase}`}>
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 flex-shrink-0" />
-                          <span className="font-medium text-gray-800 dark:text-gray-200">
-                            {voucher?.partyLedgerName || 'N/A'}
+                        <div className="flex flex-col">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:bg-blue-500 flex-shrink-0" />
+                            <span className="font-medium text-gray-800 dark:text-gray-200">
+                              {voucher?.partyLedgerName || 'N/A'}
+                            </span>
                           </span>
-                        </span>
+                          {voucher?.partyParentName ? (
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 pl-3 block truncate" title={`Group: ${voucher.partyParentName}`}>
+                              Group: {voucher.partyParentName}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className={`${tdBase} text-right font-bold text-green-700 dark:text-green-400 text-sm`}>
                         {formatCurrency(Number(voucher?.totalAmount ?? 0))}
@@ -131,6 +147,24 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                       <tr>
                         <td colSpan={7} className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                           <div className="px-6 py-5 space-y-5">
+
+                            {/* Voucher Metadata Overview */}
+                            {(voucher?.reference || voucher?.partyParentName) && (
+                              <div className="flex flex-wrap items-center gap-4 px-3.5 py-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-800/30 text-xs">
+                                {voucher?.reference && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Reference:</span>
+                                    <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{voucher.reference}</span>
+                                  </div>
+                                )}
+                                {voucher?.partyParentName && (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Party Group:</span>
+                                    <span className="font-semibold text-gray-800 dark:text-gray-200">{voucher.partyParentName}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             {/* SECTION 1 — Items */}
                             <div>
@@ -153,6 +187,7 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                                       <tr className="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 uppercase tracking-wider text-[10px]">
                                         <th className="px-3 py-2 text-left font-semibold">#</th>
                                         <th className="px-3 py-2 text-left font-semibold">Stock Item</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Item Group</th>
                                         <th className="px-3 py-2 text-right font-semibold">Qty</th>
                                         <th className="px-3 py-2 text-left font-semibold">Unit</th>
                                         <th className="px-3 py-2 text-right font-semibold">Rate</th>
@@ -165,6 +200,7 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                                         <tr key={iIdx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                           <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500 font-mono">{iIdx + 1}</td>
                                           <td className="px-3 py-2.5 font-semibold text-gray-800 dark:text-gray-100">{item?.stockItemName || '—'}</td>
+                                          <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{item?.itemParentName || '—'}</td>
                                           <td className="px-3 py-2.5 text-right text-gray-700 dark:text-gray-200 font-mono">{Number(item?.quantity ?? 0)}</td>
                                           <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{item?.quantityUnit || '—'}</td>
                                           <td className="px-3 py-2.5 text-right text-gray-700 dark:text-gray-200 font-mono">{formatCurrency(Number(item?.rate ?? 0))}</td>
@@ -175,7 +211,7 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                                     </tbody>
                                     <tfoot>
                                       <tr className="bg-gray-50 dark:bg-gray-900/60 border-t border-gray-200 dark:border-gray-700">
-                                        <td colSpan={2} className="px-3 py-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Total</td>
+                                        <td colSpan={3} className="px-3 py-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Total</td>
                                         <td className="px-3 py-2 text-right font-bold text-gray-700 dark:text-gray-200 font-mono">{totalQty}</td>
                                         <td colSpan={3} />
                                         <td className="px-3 py-2 text-right font-bold text-green-700 dark:text-green-400 font-mono">
