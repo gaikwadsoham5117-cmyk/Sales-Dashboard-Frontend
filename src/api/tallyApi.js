@@ -29,6 +29,29 @@ export function getMonthDateRange(year, monthIndex) {
   return { from, to };
 }
 
+// Helper to get 15-day split date ranges (YYYY-MM-DD) for a given month in a year
+// Split 1: 01 to 15
+// Split 2: 16 to last day of month
+export function getMonthSplitDateRanges(year, monthIndex) {
+  const y = Number(year);
+  const m = Number(monthIndex);
+  const mStr = String(m).padStart(2, '0');
+  const lastDay = new Date(y, m, 0).getDate();
+
+  return [
+    {
+      from: `${y}-${mStr}-01`,
+      to: `${y}-${mStr}-15`,
+      label: '01 - 15',
+    },
+    {
+      from: `${y}-${mStr}-16`,
+      to: `${y}-${mStr}-${String(lastDay).padStart(2, '0')}`,
+      label: `16 - ${lastDay}`,
+    },
+  ];
+}
+
 // Fetch the list of companies loaded in Tally: GET /api/company/all
 export async function getAllCompaniesApi() {
   try {
@@ -73,7 +96,9 @@ export async function getSalesVouchersDateRangeApi(companyName = '', fromDate, t
   const targetUrl = `/api/tally/${encodedCompany}/sales-vouchers/date-range?from=${fromDate}&to=${toDate}`;
 
   try {
-    const response = await axiosClient.get(targetUrl);
+    const response = await axiosClient.get(targetUrl, {
+      timeout: 300000, // 5 minutes timeout (300,000 ms) for Tally sales voucher requests
+    });
     return response.data || [];
   } catch (err) {
     const msg =
@@ -86,21 +111,64 @@ export async function getSalesVouchersDateRangeApi(companyName = '', fromDate, t
 }
 
 // Orchestrator function:
-// When month === 'all', calls date-range API 12 times in parallel (Jan..Dec) and flattens combined data.
-// When a specific month is selected (e.g. '4'), calls date-range API once for that month.
-export async function fetchSalesVouchersForPeriodApi(companyName, year, month = 'all') {
+// Splits each requested month into 15-day chunks (01-15 and 16-lastDay) to avoid overwhelming the server or hit payload limits.
+// When month === 'all', calls date-range API for each 15-day range across all 12 months sequentially (24 requests total).
+// When a specific month is selected (e.g. '5' for May), calls date-range API for both 15-day ranges for that month (2 requests total).
+export async function fetchSalesVouchersForPeriodApi(companyName, year, month = 'all', onProgress) {
   if (month === 'all' || !month) {
-    const monthRequests = [];
+    const combinedVouchers = [];
+    const totalSteps = 24;
+    let stepCount = 0;
+
     for (let m = 1; m <= 12; m++) {
-      const range = getMonthDateRange(year, m);
-      monthRequests.push(getSalesVouchersDateRangeApi(companyName, range.from, range.to));
+      const monthObj = MONTH_OPTIONS.find((opt) => opt.value === String(m));
+      const monthName = monthObj ? monthObj.label : `Month ${m}`;
+      const ranges = getMonthSplitDateRanges(year, m);
+
+      for (const range of ranges) {
+        stepCount++;
+        if (typeof onProgress === 'function') {
+          onProgress({
+            currentStep: stepCount,
+            totalSteps: totalSteps,
+            currentMonth: m,
+            totalMonths: 12,
+            monthName: `${monthName} (${range.label})`,
+          });
+        }
+
+        const data = await getSalesVouchersDateRangeApi(companyName, range.from, range.to);
+        if (Array.isArray(data)) {
+          combinedVouchers.push(...data);
+        }
+      }
     }
-    const responses = await Promise.all(monthRequests);
-    const combinedVouchers = responses.flat();
     return combinedVouchers;
   } else {
-    const range = getMonthDateRange(year, month);
-    return await getSalesVouchersDateRangeApi(companyName, range.from, range.to);
+    const monthObj = MONTH_OPTIONS.find((opt) => opt.value === String(month));
+    const monthName = monthObj ? monthObj.label : `Month ${month}`;
+    const ranges = getMonthSplitDateRanges(year, month);
+    const combinedVouchers = [];
+    const totalSteps = ranges.length;
+
+    for (let i = 0; i < ranges.length; i++) {
+      const range = ranges[i];
+      if (typeof onProgress === 'function') {
+        onProgress({
+          currentStep: i + 1,
+          totalSteps: totalSteps,
+          currentMonth: Number(month),
+          totalMonths: 1,
+          monthName: `${monthName} (${range.label})`,
+        });
+      }
+
+      const data = await getSalesVouchersDateRangeApi(companyName, range.from, range.to);
+      if (Array.isArray(data)) {
+        combinedVouchers.push(...data);
+      }
+    }
+    return combinedVouchers;
   }
 }
 

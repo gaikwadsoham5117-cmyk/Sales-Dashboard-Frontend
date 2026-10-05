@@ -27,6 +27,7 @@ export default function UserDashboard() {
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [vouchers, setVouchers]               = useState([]);
   const [loading, setLoading]                 = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(null);
   const [hasApplied, setHasApplied]           = useState(false);
   const [error, setError]                     = useState('');
   const [is403, setIs403]                     = useState(false);
@@ -43,6 +44,7 @@ export default function UserDashboard() {
 
   const fetchVouchers = async (comp = selectedCompany, yr = selectedYear, mn = selectedMonth) => {
     setLoading(true);
+    setLoadingProgress(null);
     setError('');
     setIs403(false);
     try {
@@ -61,7 +63,9 @@ export default function UserDashboard() {
         throw new Error('Please enter a valid 4-digit year (e.g. 2025).');
       }
 
-      const data = await fetchSalesVouchersForPeriodApi(targetComp, yrNum, mn);
+      const data = await fetchSalesVouchersForPeriodApi(targetComp, yrNum, mn, (progress) => {
+        setLoadingProgress(progress);
+      });
       setVouchers(data || []);
     } catch (err) {
       const msg = err.message || 'Unable to fetch sales records for Tally company.';
@@ -70,6 +74,7 @@ export default function UserDashboard() {
       setVouchers([]);
     } finally {
       setLoading(false);
+      setLoadingProgress(null);
     }
   };
 
@@ -327,13 +332,34 @@ export default function UserDashboard() {
 
       {/* Loading state */}
       {loading ? (
-        <div className="py-20 text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-            {selectedMonth === 'all'
-              ? `Fetching Tally Sales Vouchers for ${selectedYear} (12 monthly requests)...`
-              : `Fetching Tally Sales Vouchers for ${currentMonthLabel} ${selectedYear}...`}
-          </p>
+        <div className="py-20 text-center space-y-4">
+          <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">
+              {loadingProgress
+                ? `Loading ${loadingProgress.monthName} (${loadingProgress.currentStep || loadingProgress.currentMonth} of ${loadingProgress.totalSteps || loadingProgress.totalMonths})...`
+                : selectedMonth === 'all'
+                ? `Fetching Tally Sales Vouchers for ${selectedYear}...`
+                : `Fetching Tally Sales Vouchers for ${currentMonthLabel} ${selectedYear}...`}
+            </p>
+            {loadingProgress && (
+              <div className="max-w-xs mx-auto pt-2 space-y-1.5">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(((loadingProgress.currentStep || loadingProgress.currentMonth)) / (loadingProgress.totalSteps || loadingProgress.totalMonths)) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono block">
+                  {Math.round(
+                    (((loadingProgress.currentStep || loadingProgress.currentMonth)) / (loadingProgress.totalSteps || loadingProgress.totalMonths)) * 100
+                  )}% completed
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       ) : !hasApplied ? (
         /* Prompt before initial Apply click */
