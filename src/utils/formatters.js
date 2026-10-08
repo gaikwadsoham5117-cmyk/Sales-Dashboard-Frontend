@@ -18,13 +18,18 @@ export function formatLakhs(amount) {
   return formatCurrency(amount);
 }
 
-// Convert YYYYMMDD string (e.g. "20260401") to Date object
+// Convert YYYYMMDD string (e.g. "20260401" or "2026-04-01") to Date object
 export function parseTallyDate(dateStr) {
-  if (!dateStr || dateStr.length !== 8) return null;
-  const year = parseInt(dateStr.substring(0, 4), 10);
-  const month = parseInt(dateStr.substring(4, 6), 10) - 1;
-  const day = parseInt(dateStr.substring(6, 8), 10);
-  return new Date(year, month, day);
+  if (!dateStr) return null;
+  const clean = String(dateStr).replace(/[-/]/g, '').trim();
+  if (clean.length === 8) {
+    const year = parseInt(clean.substring(0, 4), 10);
+    const month = parseInt(clean.substring(4, 6), 10) - 1;
+    const day = parseInt(clean.substring(6, 8), 10);
+    return new Date(year, month, day);
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 // Format YYYYMMDD string to human readable format "01 Apr 2026"

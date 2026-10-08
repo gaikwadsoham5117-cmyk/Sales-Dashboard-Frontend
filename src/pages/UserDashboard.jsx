@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  fetchSalesVouchersForPeriodApi,
   getActiveCompanyApi,
   getAllCompaniesApi,
   MONTH_OPTIONS,
   YEAR_OPTIONS,
+  getMonthDateRange,
 } from '../api/tallyApi';
 import { useAuth } from '../context/AuthContext';
 import KPIOverview from '../components/user/KPIOverview';
@@ -13,9 +13,16 @@ import VoucherFilters from '../components/user/VoucherFilters';
 import SalesVoucherTable from '../components/user/SalesVoucherTable';
 import { parseTallyDate } from '../utils/formatters';
 import { RefreshCw, Building2, Calendar, Filter, ShieldAlert, LogOut, KeyRound, Play } from 'lucide-react';
+import { loadSalesVouchers } from '../services/voucherService.js';
+
 
 export default function UserDashboard() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  // Stable organization identifier derived from the logged-in user's server-side id.
+  // Falls back to 'DEFAULT_ORG' so IndexedDB still works even if auth state is
+  // briefly undefined during startup.
+  const organizationId = user?.id || user?.email || 'DEFAULT_ORG';
 
   const currentYear = new Date().getFullYear().toString();
   const currentMonth = (new Date().getMonth() + 1).toString();
@@ -45,6 +52,7 @@ export default function UserDashboard() {
   const fetchVouchers = async (comp = selectedCompany, yr = selectedYear, mn = selectedMonth) => {
     setLoading(true);
     setLoadingProgress(null);
+    setVouchers([]); // Clear previous month data so it does not linger while new period resolves
     setError('');
     setIs403(false);
     try {
@@ -63,9 +71,21 @@ export default function UserDashboard() {
         throw new Error('Please enter a valid 4-digit year (e.g. 2025).');
       }
 
-      const data = await fetchSalesVouchersForPeriodApi(targetComp, yrNum, mn, (progress) => {
-        setLoadingProgress(progress);
+      // ── Central Cache-First Data Loading ─────────────────────────────────
+      // Memory -> IndexedDB -> Backend (only missing chunks)
+      const data = await loadSalesVouchers({
+        organizationId,
+        companyName: targetComp,
+        year: yrNum,
+        month: mn,
+        onProgress: (progress) => {
+          setLoadingProgress(progress);
+        },
       });
+
+      console.log(`SETTING VOUCHERS FROM INDEXEDDB\nvoucherCount=${(data || []).length}`);
+
+      // ── React state update — UNCHANGED from original ─────────────────────
       setVouchers(data || []);
     } catch (err) {
       const msg = err.message || 'Unable to fetch sales records for Tally company.';
@@ -77,6 +97,7 @@ export default function UserDashboard() {
       setLoadingProgress(null);
     }
   };
+
 
   // Initial load: Fetch company list & active company ONLY (Do NOT fetch vouchers automatically)
   useEffect(() => {
@@ -166,6 +187,43 @@ export default function UserDashboard() {
     return true;
   });
 
+  const totalCalculatedSales = filteredVouchers.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0);
+  const currentMonthLabel =
+    MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || 'All Months';
+
+  if (hasApplied && !loading) {
+    const monthRange =
+      selectedMonth !== 'all'
+        ? getMonthDateRange(selectedYear, selectedMonth)
+        : { from: `${selectedYear}-01-01`, to: `${selectedYear}-12-31` };
+
+    const monthTypesCount = {};
+    vouchers.forEach((v) => {
+      const type = v.voucherTypeName || 'Sales';
+      monthTypesCount[type] = (monthTypesCount[type] || 0) + 1;
+    });
+
+    const typeBreakdownLines = Object.entries(monthTypesCount)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    console.log(`MONTH INPUT\n${currentMonthLabel}`);
+    console.log(`MONTH RANGE\n${monthRange.from} → ${monthRange.to}`);
+    console.log(`BASE VOUCHERS\ncount=${vouchers.length}`);
+    console.log(`AFTER MONTH FILTER\ncount=${vouchers.length}`);
+    if (typeBreakdownLines) {
+      console.log(`VOUCHER TYPES AFTER MONTH FILTER\n${typeBreakdownLines}`);
+    }
+    if (filters.startDate || filters.endDate) {
+      console.log(`CUSTOM RANGE\n${filters.startDate || 'start'} → ${filters.endDate || 'end'}`);
+      console.log(`AFTER CUSTOM DATE FILTER\ncount=${filteredVouchers.length}`);
+    }
+    console.log(`FINAL\ncount=${filteredVouchers.length}`);
+    console.log(`DASHBOARD UPDATE\ncount=${filteredVouchers.length}\ntotalSales=${totalCalculatedSales}`);
+    console.log(`DASHBOARD CALCULATION\nvoucherCount=${filteredVouchers.length}\ntotalSales=${totalCalculatedSales}`);
+    console.log(`RENDER DASHBOARD\nvoucherCount=${filteredVouchers.length}`);
+  }
+
   const resetFilters = () =>
     setFilters({
       partyLedger: '',
@@ -176,9 +234,6 @@ export default function UserDashboard() {
       endDate: '',
       search: '',
     });
-
-  const currentMonthLabel =
-    MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || 'All Months';
 
   return (
     <div className="space-y-5 pb-12">
@@ -336,7 +391,9 @@ export default function UserDashboard() {
           <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <div className="space-y-1">
             <p className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">
-              {loadingProgress
+              {loadingProgress?.isCached
+                ? 'Loading cached data from IndexedDB...'
+                : loadingProgress
                 ? `Loading ${loadingProgress.monthName} (${loadingProgress.currentStep || loadingProgress.currentMonth} of ${loadingProgress.totalSteps || loadingProgress.totalMonths})...`
                 : selectedMonth === 'all'
                 ? `Fetching Tally Sales Vouchers for ${selectedYear}...`

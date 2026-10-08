@@ -114,7 +114,19 @@ export async function getSalesVouchersDateRangeApi(companyName = '', fromDate, t
 // Splits each requested month into 15-day chunks (01-15 and 16-lastDay) to avoid overwhelming the server or hit payload limits.
 // When month === 'all', calls date-range API for each 15-day range across all 12 months sequentially (24 requests total).
 // When a specific month is selected (e.g. '5' for May), calls date-range API for both 15-day ranges for that month (2 requests total).
-export async function fetchSalesVouchersForPeriodApi(companyName, year, month = 'all', onProgress) {
+//
+// onProgress(progressInfo)         — called before each chunk fetch (existing behaviour, unchanged)
+// onChunkReceived(chunkVouchers, rangeFrom, rangeTo, stepInfo)
+//   — async callback called AFTER each successful chunk fetch and AWAITED before the loop continues.
+//   — Use this to persist each chunk to IndexedDB before moving to the next request.
+//   — If omitted, behaviour is identical to the original function.
+export async function fetchSalesVouchersForPeriodApi(
+  companyName,
+  year,
+  month = 'all',
+  onProgress,
+  onChunkReceived,
+) {
   if (month === 'all' || !month) {
     const combinedVouchers = [];
     const totalSteps = 24;
@@ -127,18 +139,24 @@ export async function fetchSalesVouchersForPeriodApi(companyName, year, month = 
 
       for (const range of ranges) {
         stepCount++;
+        const stepInfo = {
+          currentStep: stepCount,
+          totalSteps: totalSteps,
+          currentMonth: m,
+          totalMonths: 12,
+          monthName: `${monthName} (${range.label})`,
+        };
+
         if (typeof onProgress === 'function') {
-          onProgress({
-            currentStep: stepCount,
-            totalSteps: totalSteps,
-            currentMonth: m,
-            totalMonths: 12,
-            monthName: `${monthName} (${range.label})`,
-          });
+          onProgress(stepInfo);
         }
 
         const data = await getSalesVouchersDateRangeApi(companyName, range.from, range.to);
         if (Array.isArray(data)) {
+          // Await the per-chunk callback (e.g. IndexedDB save) before continuing
+          if (typeof onChunkReceived === 'function') {
+            await onChunkReceived(data, range.from, range.to, stepInfo);
+          }
           combinedVouchers.push(...data);
         }
       }
@@ -153,18 +171,24 @@ export async function fetchSalesVouchersForPeriodApi(companyName, year, month = 
 
     for (let i = 0; i < ranges.length; i++) {
       const range = ranges[i];
+      const stepInfo = {
+        currentStep: i + 1,
+        totalSteps: totalSteps,
+        currentMonth: Number(month),
+        totalMonths: 1,
+        monthName: `${monthName} (${range.label})`,
+      };
+
       if (typeof onProgress === 'function') {
-        onProgress({
-          currentStep: i + 1,
-          totalSteps: totalSteps,
-          currentMonth: Number(month),
-          totalMonths: 1,
-          monthName: `${monthName} (${range.label})`,
-        });
+        onProgress(stepInfo);
       }
 
       const data = await getSalesVouchersDateRangeApi(companyName, range.from, range.to);
       if (Array.isArray(data)) {
+        // Await the per-chunk callback (e.g. IndexedDB save) before continuing
+        if (typeof onChunkReceived === 'function') {
+          await onChunkReceived(data, range.from, range.to, stepInfo);
+        }
         combinedVouchers.push(...data);
       }
     }
