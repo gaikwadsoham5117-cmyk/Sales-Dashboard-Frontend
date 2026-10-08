@@ -46,7 +46,7 @@ import {
 export function normalizeVoucher(v) {
   if (!v || typeof v !== 'object') return v;
 
-  const rawGuid = v.guid || v.masterId || v.voucherNumber || v._id || '';
+  const rawGuid = v.guid || v.masterId || v.alterId || v.id || v.voucherNumber || v._id || '';
   const vType = v.voucherTypeName || v.voucherType || 'Sales';
 
   return {
@@ -59,7 +59,7 @@ export function normalizeVoucher(v) {
     partyLedgerName: v.partyLedgerName ? String(v.partyLedgerName).trim() : '',
     partyParentName: v.partyParentName ? String(v.partyParentName).trim() : '',
     reference: v.reference ? String(v.reference).trim() : '',
-    totalAmount: Number(v.totalAmount) || 0,
+    totalAmount: Number(v.totalAmount !== undefined ? v.totalAmount : (v.amount !== undefined ? v.amount : 0)) || 0,
     items: Array.isArray(v.items)
       ? v.items.map((item) => ({
           ...item,

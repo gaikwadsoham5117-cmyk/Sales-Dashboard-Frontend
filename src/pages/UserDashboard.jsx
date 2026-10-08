@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getActiveCompanyApi,
   getAllCompaniesApi,
@@ -126,68 +126,79 @@ export default function UserDashboard() {
     fetchVouchers(selectedCompany, selectedYear, selectedMonth);
   };
 
-  const partyOptions = Array.from(
-    new Set(vouchers.map((v) => v.partyLedgerName).filter(Boolean))
-  ).sort();
+  const partyOptions = useMemo(
+    () => Array.from(new Set(vouchers.map((v) => v.partyLedgerName).filter(Boolean))).sort(),
+    [vouchers]
+  );
 
-  const partyParentOptions = Array.from(
-    new Set(vouchers.map((v) => v.partyParentName).filter(Boolean))
-  ).sort();
+  const partyParentOptions = useMemo(
+    () => Array.from(new Set(vouchers.map((v) => v.partyParentName).filter(Boolean))).sort(),
+    [vouchers]
+  );
 
-  const itemOptionsSet = new Set();
-  const itemParentOptionsSet = new Set();
-  vouchers.forEach((v) => {
-    (v.items || []).forEach((item) => {
-      if (item.stockItemName) itemOptionsSet.add(item.stockItemName);
-      if (item.itemParentName) itemParentOptionsSet.add(item.itemParentName);
+  const { itemOptions, itemParentOptions } = useMemo(() => {
+    const itemOptionsSet = new Set();
+    const itemParentOptionsSet = new Set();
+    vouchers.forEach((v) => {
+      (v.items || []).forEach((item) => {
+        if (item.stockItemName) itemOptionsSet.add(item.stockItemName);
+        if (item.itemParentName) itemParentOptionsSet.add(item.itemParentName);
+      });
     });
-  });
-  const itemOptions = Array.from(itemOptionsSet).sort();
-  const itemParentOptions = Array.from(itemParentOptionsSet).sort();
+    return {
+      itemOptions: Array.from(itemOptionsSet).sort(),
+      itemParentOptions: Array.from(itemParentOptionsSet).sort(),
+    };
+  }, [vouchers]);
 
-  const filteredVouchers = vouchers.filter((v) => {
-    if (filters.partyLedger && v.partyLedgerName !== filters.partyLedger) return false;
-    if (filters.partyParentName && v.partyParentName !== filters.partyParentName) return false;
+  const filteredVouchers = useMemo(() => {
+    return vouchers.filter((v) => {
+      if (filters.partyLedger && v.partyLedgerName !== filters.partyLedger) return false;
+      if (filters.partyParentName && v.partyParentName !== filters.partyParentName) return false;
 
-    if (filters.stockItem) {
-      const hasItem = (v.items || []).some((i) => i.stockItemName === filters.stockItem);
-      if (!hasItem) return false;
-    }
-    if (filters.itemParentName) {
-      const hasItemGroup = (v.items || []).some((i) => i.itemParentName === filters.itemParentName);
-      if (!hasItemGroup) return false;
-    }
-
-    if (filters.search) {
-      const query = filters.search.toLowerCase();
-      const matchVoucherNo   = v.voucherNumber?.toLowerCase().includes(query);
-      const matchReference   = v.reference?.toLowerCase().includes(query);
-      const matchParty       = v.partyLedgerName?.toLowerCase().includes(query);
-      const matchPartyParent = v.partyParentName?.toLowerCase().includes(query);
-      const matchItem        = (v.items || []).some(
-        (i) =>
-          i.stockItemName?.toLowerCase().includes(query) ||
-          i.itemParentName?.toLowerCase().includes(query)
-      );
-      if (!matchVoucherNo && !matchReference && !matchParty && !matchPartyParent && !matchItem) return false;
-    }
-    const vDate = parseTallyDate(v.date);
-    if (vDate) {
-      if (filters.startDate) {
-        const start = new Date(filters.startDate);
-        start.setHours(0, 0, 0, 0);
-        if (vDate < start) return false;
+      if (filters.stockItem) {
+        const hasItem = (v.items || []).some((i) => i.stockItemName === filters.stockItem);
+        if (!hasItem) return false;
       }
-      if (filters.endDate) {
-        const end = new Date(filters.endDate);
-        end.setHours(23, 59, 59, 999);
-        if (vDate > end) return false;
+      if (filters.itemParentName) {
+        const hasItemGroup = (v.items || []).some((i) => i.itemParentName === filters.itemParentName);
+        if (!hasItemGroup) return false;
       }
-    }
-    return true;
-  });
 
-  const totalCalculatedSales = filteredVouchers.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0);
+      if (filters.search) {
+        const query = filters.search.toLowerCase();
+        const matchVoucherNo   = v.voucherNumber?.toLowerCase().includes(query);
+        const matchReference   = v.reference?.toLowerCase().includes(query);
+        const matchParty       = v.partyLedgerName?.toLowerCase().includes(query);
+        const matchPartyParent = v.partyParentName?.toLowerCase().includes(query);
+        const matchItem        = (v.items || []).some(
+          (i) =>
+            i.stockItemName?.toLowerCase().includes(query) ||
+            i.itemParentName?.toLowerCase().includes(query)
+        );
+        if (!matchVoucherNo && !matchReference && !matchParty && !matchPartyParent && !matchItem) return false;
+      }
+      const vDate = parseTallyDate(v.date);
+      if (vDate) {
+        if (filters.startDate) {
+          const start = new Date(filters.startDate);
+          start.setHours(0, 0, 0, 0);
+          if (vDate < start) return false;
+        }
+        if (filters.endDate) {
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          if (vDate > end) return false;
+        }
+      }
+      return true;
+    });
+  }, [vouchers, filters]);
+
+  const totalCalculatedSales = useMemo(
+    () => filteredVouchers.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0),
+    [filteredVouchers]
+  );
   const currentMonthLabel =
     MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label || 'All Months';
 
@@ -224,16 +235,19 @@ export default function UserDashboard() {
     console.log(`RENDER DASHBOARD\nvoucherCount=${filteredVouchers.length}`);
   }
 
-  const resetFilters = () =>
-    setFilters({
-      partyLedger: '',
-      partyParentName: '',
-      stockItem: '',
-      itemParentName: '',
-      startDate: '',
-      endDate: '',
-      search: '',
-    });
+  const resetFilters = useCallback(
+    () =>
+      setFilters({
+        partyLedger: '',
+        partyParentName: '',
+        stockItem: '',
+        itemParentName: '',
+        startDate: '',
+        endDate: '',
+        search: '',
+      }),
+    []
+  );
 
   return (
     <div className="space-y-5 pb-12">

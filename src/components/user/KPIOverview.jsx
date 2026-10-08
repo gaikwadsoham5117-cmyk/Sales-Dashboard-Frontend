@@ -1,20 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import StatCard from '../common/StatCard';
 import { formatLakhs } from '../../utils/formatters';
 import { IndianRupee, FileCheck, Users, PackageCheck } from 'lucide-react';
 
 export default function KPIOverview({ vouchers = [] }) {
-  const totalTurnover = vouchers.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0);
-  const totalVouchers = vouchers.length;
-  const uniqueLedgers = new Set(vouchers.map((v) => v.partyLedgerName).filter(Boolean)).size;
+  const { totalTurnover, totalVouchers, uniqueLedgers, totalStockItems } = useMemo(() => {
+    let turnover = 0;
+    const ledgerSet = new Set();
+    const stockItemsSet = new Set();
 
-  const stockItemsSet = new Set();
-  vouchers.forEach((v) => {
-    (v.items || []).forEach((item) => {
-      if (item.stockItemName) stockItemsSet.add(item.stockItemName);
-    });
-  });
-  const totalStockItems = stockItemsSet.size;
+    const len = vouchers.length;
+    for (let i = 0; i < len; i++) {
+      const v = vouchers[i];
+      turnover += (Number(v?.totalAmount) || 0);
+      if (v?.partyLedgerName) ledgerSet.add(v.partyLedgerName);
+      if (Array.isArray(v?.items)) {
+        for (let j = 0; j < v.items.length; j++) {
+          const itemName = v.items[j]?.stockItemName;
+          if (itemName) stockItemsSet.add(itemName);
+        }
+      }
+    }
+
+    return {
+      totalTurnover: turnover,
+      totalVouchers: len,
+      uniqueLedgers: ledgerSet.size,
+      totalStockItems: stockItemsSet.size,
+    };
+  }, [vouchers]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -22,40 +22,56 @@ const RANK_COLORS = [
 ];
 
 export default function ChartsSection({ vouchers = [] }) {
-  // ── 1. Party Ledger aggregation ──────────────────────────────────────────
-  const partyMap = {};
-  vouchers.forEach((v) => {
-    const party = v.partyLedgerName || 'Unknown';
-    partyMap[party] = (partyMap[party] || 0) + (Number(v.totalAmount) || 0);
-  });
-  const partyChartData = Object.keys(partyMap)
-    .map((name) => ({ name, amount: partyMap[name] }))
-    .sort((a, b) => b.amount - a.amount);
+  // Memoized multi-aggregation across vouchers in a single optimized pass
+  const { partyChartData, itemChartData, trendChartData } = useMemo(() => {
+    const partyMap = {};
+    const itemMap = {};
+    const dateMap = {};
 
-  // ── 2. Stock item aggregation ────────────────────────────────────────────
-  const itemMap = {};
-  vouchers.forEach((v) => {
-    (v.items || []).forEach((item) => {
-      const name = item.stockItemName || 'Other';
-      itemMap[name] = (itemMap[name] || 0) + (Number(item.amount) || 0);
-    });
-  });
-  const itemChartData = Object.keys(itemMap)
-    .map((name) => ({ name, amount: itemMap[name] }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 8);
+    const len = vouchers.length;
+    for (let i = 0; i < len; i++) {
+      const v = vouchers[i];
+      const party = v?.partyLedgerName || 'Unknown';
+      const amount = Number(v?.totalAmount) || 0;
 
-  // ── 3. Date Timeline aggregation ─────────────────────────────────────────
-  const dateMap = {};
-  vouchers.forEach((v) => {
-    const dateFormatted = formatReadableDate(v.date);
-    dateMap[dateFormatted] = (dateMap[dateFormatted] || 0) + (Number(v.totalAmount) || 0);
-  });
-  const trendChartData = Object.keys(dateMap).map((date) => ({ date, sales: dateMap[date] }));
+      // Party Ledger aggregation
+      partyMap[party] = (partyMap[party] || 0) + amount;
+
+      // Stock item aggregation
+      if (Array.isArray(v?.items)) {
+        for (let j = 0; j < v.items.length; j++) {
+          const item = v.items[j];
+          const name = item?.stockItemName || 'Other';
+          itemMap[name] = (itemMap[name] || 0) + (Number(item?.amount) || 0);
+        }
+      }
+
+      // Date Timeline aggregation
+      const dateFormatted = formatReadableDate(v?.date);
+      dateMap[dateFormatted] = (dateMap[dateFormatted] || 0) + amount;
+    }
+
+    const sortedParties = Object.keys(partyMap)
+      .map((name) => ({ name, amount: partyMap[name] }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const sortedItems = Object.keys(itemMap)
+      .map((name) => ({ name, amount: itemMap[name] }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+
+    const trends = Object.keys(dateMap).map((date) => ({ date, sales: dateMap[date] }));
+
+    return {
+      partyChartData: sortedParties,
+      itemChartData: sortedItems,
+      trendChartData: trends,
+    };
+  }, [vouchers]);
 
   // ── Top Customers toggle state ───────────────────────────────────────────
-  const [topCount, setTopCount] = React.useState(5);
-  const topCustomers = partyChartData.slice(0, topCount);
+  const [topCount, setTopCount] = useState(5);
+  const topCustomers = useMemo(() => partyChartData.slice(0, topCount), [partyChartData, topCount]);
   const maxAmount = topCustomers[0]?.amount || 1;
 
   // ── Shared tooltip ───────────────────────────────────────────────────────
@@ -89,7 +105,7 @@ export default function ChartsSection({ vouchers = [] }) {
               <button
                 key={n}
                 onClick={() => setTopCount(n)}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all duration-150 ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all duration-150 cursor-pointer ${
                   topCount === n
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'

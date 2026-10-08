@@ -42,6 +42,12 @@ export function getVoucherUniqueKey(voucher) {
   if (voucher.masterId && String(voucher.masterId).trim()) {
     return `MID_${String(voucher.masterId).trim()}`;
   }
+  if (voucher.alterId && String(voucher.alterId).trim()) {
+    return `AID_${String(voucher.alterId).trim()}`;
+  }
+  if (voucher.id && String(voucher.id).trim()) {
+    return `ID_${String(voucher.id).trim()}`;
+  }
   const vType = voucher.voucherTypeName || voucher.voucherType || 'Sales';
   const vNum = voucher.voucherNumber || voucher.reference || 'NO_NUM';
   const vDate = toComparableDateStr(voucher.date) || voucher.date || '';
@@ -70,11 +76,12 @@ function wrapVoucher(voucher, organizationId, companyName) {
   const fy         = getFinancialYear(voucher.date);
   const companyKey = normaliseCompanyKey(companyName);
   const dateStr    = voucher.date ? String(voucher.date).trim() : '';
+  const vType      = voucher.voucherTypeName || voucher.voucherType || 'Sales';
 
   return {
     ...voucher,
     guid:           voucher.guid ? String(voucher.guid).trim() : guid,
-    voucherTypeName: voucher.voucherTypeName ? String(voucher.voucherTypeName).trim() : 'Sales',
+    voucherTypeName: String(vType).trim(),
     _id:            buildVoucherId(organizationId, companyKey, fy, guid),
     organizationId,
     companyKey,
@@ -187,22 +194,20 @@ export async function saveVouchers(vouchers, organizationId, companyName) {
         reject(error || new Error('Transaction aborted'));
       };
 
-      for (const rawVoucher of rawList) {
-        // Sanitize object into pure cloneable JSON to prevent StructuredCloneError
-        let cleanVoucher = rawVoucher;
-        try {
-          cleanVoucher = JSON.parse(JSON.stringify(rawVoucher));
-        } catch {
-          cleanVoucher = { ...rawVoucher };
+      for (let i = 0; i < rawList.length; i++) {
+        const rawVoucher = rawList[i];
+        if (!rawVoucher || typeof rawVoucher !== 'object') {
+          result.skipped++;
+          continue;
         }
 
-        if (cleanVoucher.guid && String(cleanVoucher.guid).trim().length > 10) {
+        if (rawVoucher.guid && String(rawVoucher.guid).trim().length > 10) {
           guidPresentCount++;
         } else {
           guidMissingCount++;
         }
 
-        const record = wrapVoucher(cleanVoucher, organizationId, companyName);
+        const record = wrapVoucher(rawVoucher, organizationId, companyName);
         if (!record) {
           result.skipped++;
           continue;
@@ -210,11 +215,25 @@ export async function saveVouchers(vouchers, organizationId, companyName) {
 
         generatedIds.add(record._id);
 
-        const req = store.put(record);
-        req.onerror = (e) => {
-          console.error('[INDEXEDDB] ❌ store.put error for voucher:', record._id, e.target?.error);
-        };
-        result.saved++;
+        try {
+          const req = store.put(record);
+          req.onerror = (e) => {
+            console.error('[INDEXEDDB] ❌ store.put error for voucher:', record._id, e.target?.error);
+          };
+          result.saved++;
+        } catch (putErr) {
+          // If a direct put fails due to non-cloneable objects, sanitize once and retry
+          try {
+            const sanitized = JSON.parse(JSON.stringify(record));
+            const req = store.put(sanitized);
+            req.onerror = (e) => {
+              console.error('[INDEXEDDB] ❌ store.put error for sanitized voucher:', record._id, e.target?.error);
+            };
+            result.saved++;
+          } catch {
+            result.skipped++;
+          }
+        }
       }
     } catch (err) {
       console.error('[INDEXEDDB] ❌ Synchronous error in saveVouchers:', err);

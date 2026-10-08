@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ChevronDown, ChevronRight, FileSpreadsheet,
   Package, Layers, Hash,
+  ChevronLeft, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { formatCurrency, formatReadableDate } from '../../utils/formatters';
 import { exportVouchersToExcel } from '../../utils/excelExport';
 
 export default function SalesVoucherTable({ vouchers = [] }) {
   const [expandedRows, setExpandedRows] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const safeVouchers = Array.isArray(vouchers) ? vouchers : [];
 
-  const toggleRow = (index) =>
-    setExpandedRows((prev) => ({ ...prev, [index]: !prev[index] }));
+  // Reset page and expanded state when vouchers dataset changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedRows({});
+  }, [vouchers]);
+
+  const totalRecords = safeVouchers.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+
+  // Ensure currentPage remains valid if totalPages changes
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedVouchers = useMemo(() => {
+    const start = (validCurrentPage - 1) * pageSize;
+    return safeVouchers.slice(start, start + pageSize);
+  }, [safeVouchers, validCurrentPage, pageSize]);
+
+  const toggleRow = (id) =>
+    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const getItems = (v) => (Array.isArray(v?.items) ? v.items : []);
   const getLedgerEntries = (v) => (Array.isArray(v?.ledgerEntries) ? v.ledgerEntries : []);
@@ -41,16 +61,70 @@ export default function SalesVoucherTable({ vouchers = [] }) {
   const thBase = 'px-4 py-3 text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider';
   const tdBase = 'px-4 py-3 text-xs';
 
+  const startIndex = totalRecords === 0 ? 0 : (validCurrentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(validCurrentPage * pageSize, totalRecords);
+
+  // Generate visible page numbers for pagination controls
+  const paginationRange = useMemo(() => {
+    const delta = 2;
+    const range = [];
+    for (
+      let i = Math.max(2, validCurrentPage - delta);
+      i <= Math.min(totalPages - 1, validCurrentPage + delta);
+      i++
+    ) {
+      range.push(i);
+    }
+
+    if (validCurrentPage - delta > 2) {
+      range.unshift('...');
+    }
+    if (validCurrentPage + delta < totalPages - 1) {
+      range.push('...');
+    }
+
+    range.unshift(1);
+    if (totalPages > 1) {
+      range.push(totalPages);
+    }
+
+    return range;
+  }, [validCurrentPage, totalPages]);
+
   return (
-    <div className="w-full">
-      {/* Export */}
-      <div className="flex justify-end mb-3">
+    <div className="w-full space-y-3">
+      {/* Table Header Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+            Showing <strong className="text-gray-900 dark:text-gray-100">{startIndex}</strong> to{' '}
+            <strong className="text-gray-900 dark:text-gray-100">{endIndex}</strong> of{' '}
+            <strong className="text-blue-600 dark:text-blue-400">{totalRecords.toLocaleString()}</strong> vouchers
+          </span>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <span>Per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md px-2 py-1 text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-blue-500"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+          </div>
+        </div>
+
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors shadow-sm cursor-pointer"
         >
           <FileSpreadsheet size={14} />
-          Export to Excel
+          Export to Excel ({totalRecords.toLocaleString()})
         </button>
       </div>
 
@@ -70,33 +144,33 @@ export default function SalesVoucherTable({ vouchers = [] }) {
           </thead>
 
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {safeVouchers.length === 0 ? (
+            {paginatedVouchers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500 text-xs font-medium">
                   No sales vouchers found matching your filter criteria.
                 </td>
               </tr>
             ) : (
-              safeVouchers.map((voucher, index) => {
-                const isExpanded    = Boolean(expandedRows[index]);
-                const items         = getItems(voucher);
+              paginatedVouchers.map((voucher, index) => {
+                const globalIndex = (validCurrentPage - 1) * pageSize + index;
+                const rowKey = voucher?.guid || voucher?.masterId || `${voucher?.date}-${voucher?.voucherNumber}-${globalIndex}`;
+                const isExpanded = Boolean(expandedRows[rowKey]);
+                const items = getItems(voucher);
                 const ledgerEntries = getLedgerEntries(voucher);
-                const gst           = getGSTDetails(voucher);
-                const totalGST      = getTotalGST(voucher);
-                const totalQty      = getTotalQuantity(voucher);
+                const gst = getGSTDetails(voucher);
+                const totalGST = getTotalGST(voucher);
+                const totalQty = getTotalQuantity(voucher);
 
                 return (
-                  <React.Fragment
-                    key={voucher?.guid || voucher?.masterId || `${voucher?.date}-${voucher?.voucherNumber}-${index}`}
-                  >
+                  <React.Fragment key={rowKey}>
                     {/* Main Row */}
                     <tr
-                      onClick={() => toggleRow(index)}
+                      onClick={() => toggleRow(rowKey)}
                       className={`cursor-pointer select-none transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40 ${
                         isExpanded ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
                       }`}
                     >
-                      <td className={`${tdBase} text-center text-gray-400 dark:text-gray-500 font-mono`}>{index + 1}</td>
+                      <td className={`${tdBase} text-center text-gray-400 dark:text-gray-500 font-mono`}>{globalIndex + 1}</td>
                       <td className={`${tdBase} font-medium text-gray-700 dark:text-gray-200`}>{formatReadableDate(voucher?.date)}</td>
                       <td className={`${tdBase}`}>
                         <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium text-[11px]">
@@ -252,10 +326,10 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                       {ledgerEntries.map((ledger, lIdx) => {
-                                        const bills   = getBillAllocations(ledger);
-                                        const isGST   = ledger?.gstLedger;
+                                        const bills = getBillAllocations(ledger);
+                                        const isGST = ledger?.gstLedger;
                                         const isParty = ledger?.partyLedger;
-                                        const amt     = Number(ledger?.amount ?? 0);
+                                        const amt = Number(ledger?.amount ?? 0);
                                         return (
                                           <tr key={lIdx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td className="px-3 py-2.5 font-semibold text-gray-800 dark:text-gray-100">
@@ -309,12 +383,12 @@ export default function SalesVoucherTable({ vouchers = [] }) {
 
                               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                                 {[
-                                  { label: 'CGST',       value: gst.cgst      },
-                                  { label: 'SGST',       value: gst.sgst      },
-                                  { label: 'IGST',       value: gst.igst      },
-                                  { label: 'Cess',       value: gst.cess      },
+                                  { label: 'CGST', value: gst.cgst },
+                                  { label: 'SGST', value: gst.sgst },
+                                  { label: 'IGST', value: gst.igst },
+                                  { label: 'Cess', value: gst.cess },
                                   { label: 'State Cess', value: gst.stateCess },
-                                  { label: 'Total GST',  value: totalGST, highlight: true },
+                                  { label: 'Total GST', value: totalGST, highlight: true },
                                 ].map(({ label, value, highlight }) => (
                                   <div
                                     key={label}
@@ -366,6 +440,76 @@ export default function SalesVoucherTable({ vouchers = [] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm text-xs">
+          <span className="text-gray-500 dark:text-gray-400">
+            Page <strong className="text-gray-800 dark:text-gray-200">{validCurrentPage}</strong> of{' '}
+            <strong className="text-gray-800 dark:text-gray-200">{totalPages}</strong> ({totalRecords.toLocaleString()} total vouchers)
+          </span>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={validCurrentPage === 1}
+              aria-label="First page"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={validCurrentPage === 1}
+              aria-label="Previous page"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
+
+            {paginationRange.map((page, idx) => {
+              if (page === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-400">
+                    ...
+                  </span>
+                );
+              }
+              const isCurrent = page === validCurrentPage;
+              return (
+                <button
+                  key={`page-${page}`}
+                  onClick={() => setCurrentPage(page)}
+                  className={`min-w-[28px] h-7 px-2 rounded-lg font-semibold text-xs transition-colors ${
+                    isCurrent
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={validCurrentPage === totalPages}
+              aria-label="Next page"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={validCurrentPage === totalPages}
+              aria-label="Last page"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
