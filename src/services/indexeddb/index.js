@@ -76,6 +76,11 @@ export {
   tallyDateToISO,
   isoToTallyDate,
   isValidISODate,
+  normalizeLedgerAmount,
+  normalizeLedgerEntry,
+  normalizeLedgerEntries,
+  hasNegativeLedgerAmount,
+  getVoucherTurnoverAmount,
 } from './helpers.js';
 
 // ── Central Voucher Service ──────────────────────────────────────────────────
@@ -84,4 +89,11 @@ export {
   clearMemoryCache,
   getRequiredChunks,
 } from '../voucherService.js';
+
+// ── Sync & Reconciliation Service ───────────────────────────────────────────
+export {
+  syncPeriodVouchers,
+  getLastSyncedTime,
+} from '../syncService.js';
+
 

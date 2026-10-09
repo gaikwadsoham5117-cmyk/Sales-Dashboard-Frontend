@@ -1,9 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserPlus, Users, RefreshCw, X, CheckCircle, AlertCircle, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
-import { createEmployeeApi, changeEmployeeStatusApi, deleteEmployeeApi } from '../../api/employeeApi';
-import { getAllUsersApi } from '../../api/adminApi';
+import { createEmployeeApi, changeEmployeeStatusApi, deleteEmployeeApi, getUsersByOrganizationApi } from '../../api/employeeApi';
+import { getUserByIdApi } from '../../api/adminApi';
+import { useAuth } from '../../context/AuthContext';
+import { parseJwtPayload } from '../../utils/formatters';
 
 export default function EmployeeManagement() {
+  const { user, updateUser } = useAuth();
+  const [resolvedOrgId, setResolvedOrgId] = useState(() => {
+    return (
+      user?.organizationId ||
+      user?.orgId ||
+      user?.organization?.id ||
+      user?.organization?._id ||
+      (typeof user?.organization === 'string' ? user.organization : '')
+    );
+  });
+
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,16 +38,78 @@ export default function EmployeeManagement() {
     address: ''
   });
 
-  const fetchEmployees = async () => {
+  // Resolve organization ID from user state, JWT token, or user lookup
+  useEffect(() => {
+    let orgId =
+      user?.organizationId ||
+      user?.orgId ||
+      user?.organization?.id ||
+      user?.organization?._id ||
+      (typeof user?.organization === 'string' ? user.organization : '');
+
+    if (orgId) {
+      setResolvedOrgId(orgId);
+      return;
+    }
+
+    const token = localStorage.getItem('tally_auth_token');
+    if (token) {
+      const payload = parseJwtPayload(token);
+      orgId =
+        payload?.organizationId ||
+        payload?.orgId ||
+        payload?.organization ||
+        payload?.org ||
+        '';
+      if (orgId) {
+        setResolvedOrgId(orgId);
+        if (updateUser) updateUser({ organizationId: orgId });
+        return;
+      }
+    }
+
+    const userId = user?.id || user?.userId || user?._id;
+    if (userId) {
+      getUserByIdApi(userId)
+        .then((res) => {
+          const data = res?.data || res;
+          const fetchedOrgId =
+            data?.organizationId ||
+            data?.orgId ||
+            data?.organization?.id ||
+            data?.organization?._id ||
+            (typeof data?.organization === 'string' ? data.organization : '');
+          if (fetchedOrgId) {
+            setResolvedOrgId(fetchedOrgId);
+            if (updateUser) updateUser({ organizationId: fetchedOrgId });
+          } else {
+            setError('Organization ID not found for this owner.');
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          setError(err.message || 'Failed to retrieve owner organization details.');
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const fetchEmployees = async (overrideOrgId) => {
+    const orgId = typeof overrideOrgId === 'string' && overrideOrgId ? overrideOrgId : resolvedOrgId;
+    if (!orgId) {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const response = await getAllUsersApi();
-      const allUsers = response?.data || response || [];
+      const response = await getUsersByOrganizationApi(orgId);
+      const allUsers = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       const employeeUsers = allUsers
-        .filter(user => user.roles === 'EMPLOYEE')
-        .map(user => {
-          const { password, ...safeUser } = user;
+        .filter((u) => u.roles === 'EMPLOYEE' || !u.roles)
+        .map((u) => {
+          const { password, ...safeUser } = u;
           return safeUser;
         });
       setEmployees(employeeUsers);
@@ -46,8 +121,10 @@ export default function EmployeeManagement() {
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (resolvedOrgId) {
+      fetchEmployees(resolvedOrgId);
+    }
+  }, [resolvedOrgId]);
 
   const handleToggleStatus = async (emp) => {
     const isActive = emp.status === 'ACTIVE';
@@ -160,7 +237,7 @@ export default function EmployeeManagement() {
             />
           </div>
           <button
-            onClick={fetchEmployees}
+            onClick={() => fetchEmployees()}
             disabled={loading}
             className="flex items-center gap-2 px-3 py-2 text-xs font-semibold bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-700/50 transition-colors"
           >
@@ -179,7 +256,7 @@ export default function EmployeeManagement() {
             <AlertCircle className="w-8 h-8 text-rose-400 mb-2" />
             <p className="text-sm text-rose-300 mb-4">{error}</p>
             <button
-              onClick={fetchEmployees}
+              onClick={() => fetchEmployees()}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors"
             >
               Try Again

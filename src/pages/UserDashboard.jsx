@@ -11,9 +11,12 @@ import KPIOverview from '../components/user/KPIOverview';
 import ChartsSection from '../components/user/ChartsSection';
 import VoucherFilters from '../components/user/VoucherFilters';
 import SalesVoucherTable from '../components/user/SalesVoucherTable';
-import { parseTallyDate } from '../utils/formatters';
-import { RefreshCw, Building2, Calendar, Filter, ShieldAlert, LogOut, KeyRound, Play } from 'lucide-react';
+import { parseTallyDate, formatDateTime } from '../utils/formatters';
+import { RefreshCw, Building2, Calendar, Filter, ShieldAlert, LogOut, KeyRound, Play, Clock } from 'lucide-react';
 import { loadSalesVouchers } from '../services/voucherService.js';
+import { getLastSyncedTime } from '../services/syncService.js';
+import { getVoucherTurnoverAmount } from '../services/indexeddb/helpers';
+import SyncDataModal from '../components/user/SyncDataModal.jsx';
 
 
 export default function UserDashboard() {
@@ -38,6 +41,10 @@ export default function UserDashboard() {
   const [hasApplied, setHasApplied]           = useState(false);
   const [error, setError]                     = useState('');
   const [is403, setIs403]                     = useState(false);
+
+  // Sync Data modal and timestamp states
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt]       = useState(null);
 
   const [filters, setFilters] = useState({
     partyLedger: '',
@@ -119,6 +126,26 @@ export default function UserDashboard() {
     initCompanies();
   }, []);
 
+  // Fetch the latest sync timestamp from IndexedDB whenever company or year changes
+  useEffect(() => {
+    if (selectedCompany) {
+      getLastSyncedTime(organizationId, selectedCompany, selectedYear).then((ts) => {
+        setLastSyncedAt(ts);
+      });
+    }
+  }, [organizationId, selectedCompany, selectedYear]);
+
+  // Handler invoked when manual sync completes successfully
+  const handleSyncSuccess = (result) => {
+    if (result && result.lastSyncedAt) {
+      setLastSyncedAt(result.lastSyncedAt);
+    }
+    // If the user has already loaded dashboard data for this company, reload from cache
+    if (hasApplied && selectedCompany) {
+      fetchVouchers(selectedCompany, selectedYear, selectedMonth);
+    }
+  };
+
   // Form submit handler: hits API only when user clicks Apply button
   const handleApplySubmit = (e) => {
     if (e) e.preventDefault();
@@ -196,7 +223,7 @@ export default function UserDashboard() {
   }, [vouchers, filters]);
 
   const totalCalculatedSales = useMemo(
-    () => filteredVouchers.reduce((sum, v) => sum + (Number(v.totalAmount) || 0), 0),
+    () => filteredVouchers.reduce((sum, v) => sum + getVoucherTurnoverAmount(v), 0),
     [filteredVouchers]
   );
   const currentMonthLabel =
@@ -264,6 +291,18 @@ export default function UserDashboard() {
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-semibold border border-blue-100 dark:border-blue-800/40">
                   <Building2 className="w-3.5 h-3.5" />
                   {selectedCompany}
+                </span>
+              )}
+              {lastSyncedAt ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 text-xs font-medium border border-gray-200 dark:border-gray-600">
+                  <Clock className="w-3.5 h-3.5 text-gray-400 dark:text-gray-400" />
+                  <span>Last synced:</span>
+                  <strong className="text-gray-800 dark:text-gray-200">{formatDateTime(lastSyncedAt)}</strong>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 text-xs border border-gray-200 dark:border-gray-700">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Last synced: Not synced yet</span>
                 </span>
               )}
             </div>
@@ -359,6 +398,23 @@ export default function UserDashboard() {
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                 <span>Apply</span>
+              </button>
+            </div>
+
+            {/* Sync Data Button */}
+            <div className="flex flex-col gap-1 justify-end">
+              <label className="text-[10px] font-semibold text-transparent uppercase tracking-wider select-none">
+                Sync
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(true)}
+                disabled={loading || companiesLoading || !selectedCompany}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
+                title="Manually sync period data with Tally"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Sync Data</span>
               </button>
             </div>
           </form>
@@ -463,6 +519,17 @@ export default function UserDashboard() {
           <SalesVoucherTable vouchers={filteredVouchers} />
         </>
       )}
+
+      {/* Manual Period Sync Modal */}
+      <SyncDataModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        companyName={selectedCompany}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        organizationId={organizationId}
+        onSyncSuccess={handleSyncSuccess}
+      />
     </div>
   );
 }

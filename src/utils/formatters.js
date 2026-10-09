@@ -1,11 +1,14 @@
 // Format number into INR currency format
 export function formatCurrency(amount) {
   if (amount === undefined || amount === null || isNaN(amount)) return '₹0';
+  const num = Number(amount);
+  const hasDecimals = num % 1 !== 0;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(amount);
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
+  }).format(num);
 }
 
 // Format currency into Lakhs (e.g. ₹13.79 L) or formatted INR
@@ -65,3 +68,19 @@ export function parseJwtPayload(token) {
     return null;
   }
 }
+
+// Format Unix timestamp into readable date & time string e.g. "24 Sep 2026, 4:32 PM"
+export function formatDateTime(timestamp) {
+  if (!timestamp) return 'Never synced';
+  const d = new Date(timestamp);
+  if (isNaN(d.getTime())) return 'Never synced';
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+

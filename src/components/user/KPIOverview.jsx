@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import StatCard from '../common/StatCard';
-import { formatLakhs } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
+import { getVoucherTurnoverAmount } from '../../services/indexeddb/helpers';
 import { IndianRupee, FileCheck, Users, PackageCheck } from 'lucide-react';
 
 export default function KPIOverview({ vouchers = [] }) {
@@ -12,7 +13,7 @@ export default function KPIOverview({ vouchers = [] }) {
     const len = vouchers.length;
     for (let i = 0; i < len; i++) {
       const v = vouchers[i];
-      turnover += (Number(v?.totalAmount) || 0);
+      turnover += getVoucherTurnoverAmount(v);
       if (v?.partyLedgerName) ledgerSet.add(v.partyLedgerName);
       if (Array.isArray(v?.items)) {
         for (let j = 0; j < v.items.length; j++) {
@@ -34,7 +35,7 @@ export default function KPIOverview({ vouchers = [] }) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
         title="Total Sales (Turnover)"
-        value={formatLakhs(totalTurnover)}
+        value={formatCurrency(totalTurnover)}
         trend="▲ 12.5%"
         trendLabel="vs last month"
         icon={IndianRupee}

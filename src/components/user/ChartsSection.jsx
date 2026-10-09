@@ -5,6 +5,7 @@ import {
   AreaChart, Area,
 } from 'recharts';
 import { formatCurrency, formatReadableDate } from '../../utils/formatters';
+import { getVoucherTurnoverAmount } from '../../services/indexeddb/helpers';
 
 // Chart container shared classes
 const cardClass =
@@ -32,7 +33,7 @@ export default function ChartsSection({ vouchers = [] }) {
     for (let i = 0; i < len; i++) {
       const v = vouchers[i];
       const party = v?.partyLedgerName || 'Unknown';
-      const amount = Number(v?.totalAmount) || 0;
+      const amount = getVoucherTurnoverAmount(v);
 
       // Party Ledger aggregation
       partyMap[party] = (partyMap[party] || 0) + amount;

@@ -15,7 +15,14 @@ import {
   promisifyTransaction,
 } from './database.js';
 
-import { getFinancialYear, normaliseCompanyKey, toComparableDateStr } from './helpers.js';
+import {
+  getFinancialYear,
+  normaliseCompanyKey,
+  toComparableDateStr,
+  normalizeLedgerEntry,
+  normalizeLedgerEntries,
+  hasNegativeLedgerAmount,
+} from './helpers.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Key builder
@@ -82,6 +89,9 @@ function wrapVoucher(voucher, organizationId, companyName) {
     ...voucher,
     guid:           voucher.guid ? String(voucher.guid).trim() : guid,
     voucherTypeName: String(vType).trim(),
+    ledgerEntries:  Array.isArray(voucher.ledgerEntries)
+      ? voucher.ledgerEntries.map(normalizeLedgerEntry)
+      : [],
     _id:            buildVoucherId(organizationId, companyKey, fy, guid),
     organizationId,
     companyKey,
@@ -244,6 +254,29 @@ export async function saveVouchers(vouchers, organizationId, companyName) {
 }
 
 /**
+ * Safely repair negative ledger amounts in IndexedDB in the background.
+ *
+ * @param {Array<Object>} recordsToRepair
+ */
+function repairNegativeLedgersInStore(recordsToRepair) {
+  if (!recordsToRepair || recordsToRepair.length === 0) return;
+  getDatabase()
+    .then((db) => {
+      if (!db) return;
+      try {
+        const tx = db.transaction(STORE_VOUCHERS, 'readwrite');
+        const store = tx.objectStore(STORE_VOUCHERS);
+        for (const record of recordsToRepair) {
+          store.put(record);
+        }
+      } catch (err) {
+        console.warn('[INDEXEDDB] Background repair of negative ledger amounts failed:', err);
+      }
+    })
+    .catch(() => {});
+}
+
+/**
  * Update specific fields on an existing voucher.
  * This is a read-modify-write — do not call in hot loops, use saveVouchers instead.
  *
@@ -265,7 +298,12 @@ export async function updateVoucher(id, updates) {
       return false;
     }
 
-    const updated = { ...existing, ...updates, _id: id, cachedAt: Date.now() };
+    const sanitizedUpdates = { ...updates };
+    if (Array.isArray(sanitizedUpdates.ledgerEntries)) {
+      sanitizedUpdates.ledgerEntries = sanitizedUpdates.ledgerEntries.map(normalizeLedgerEntry);
+    }
+
+    const updated = { ...existing, ...sanitizedUpdates, _id: id, cachedAt: Date.now() };
     await promisifyRequest(store.put(updated));
     await promisifyTransaction(tx);
     return true;
@@ -298,7 +336,19 @@ export async function getVoucher(organizationId, companyName, financialYear, gui
     const tx         = db.transaction(STORE_VOUCHERS, 'readonly');
     const store      = tx.objectStore(STORE_VOUCHERS);
 
-    return (await promisifyRequest(store.get(id))) ?? null;
+    const raw = (await promisifyRequest(store.get(id))) ?? null;
+    if (!raw) return null;
+
+    if (hasNegativeLedgerAmount(raw)) {
+      const repaired = {
+        ...raw,
+        ledgerEntries: normalizeLedgerEntries(raw.ledgerEntries),
+      };
+      repairNegativeLedgersInStore([repaired]);
+      return repaired;
+    }
+
+    return raw;
   } catch (err) {
     _handleError('[INDEXEDDB] getVoucher failed:', err);
     return null;
@@ -323,10 +373,8 @@ export async function getVouchersByCompany(organizationId, companyName) {
     const store      = tx.objectStore(STORE_VOUCHERS);
     const index      = store.index('byCompanyFYDate');
 
-    // Use a key range on just the first two components (organizationId, companyKey)
-    // IDB compound indexes require specifying all leading key parts for a range.
-    // We iterate the entire companyKey prefix using a cursor.
     const results = [];
+    const recordsToRepair = [];
     const cursorReq = index.openCursor(
       IDBKeyRange.bound(
         [organizationId, companyKey, '', ''],
@@ -338,9 +386,22 @@ export async function getVouchersByCompany(organizationId, companyName) {
       cursorReq.onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
-          results.push(cursor.value);
+          const v = cursor.value;
+          if (hasNegativeLedgerAmount(v)) {
+            const repaired = {
+              ...v,
+              ledgerEntries: normalizeLedgerEntries(v.ledgerEntries),
+            };
+            results.push(repaired);
+            recordsToRepair.push(repaired);
+          } else {
+            results.push(v);
+          }
           cursor.continue();
         } else {
+          if (recordsToRepair.length > 0) {
+            repairNegativeLedgersInStore(recordsToRepair);
+          }
           resolve(results);
         }
       };
@@ -378,6 +439,7 @@ export async function getVouchersByCompanyAndFinancialYear(
     const index      = store.index('byCompanyFYDate');
 
     const results  = [];
+    const recordsToRepair = [];
     const cursorReq = index.openCursor(
       IDBKeyRange.bound(
         [organizationId, companyKey, financialYear, ''],
@@ -389,9 +451,22 @@ export async function getVouchersByCompanyAndFinancialYear(
       cursorReq.onsuccess = (e) => {
         const cursor = e.target.result;
         if (cursor) {
-          results.push(cursor.value);
+          const v = cursor.value;
+          if (hasNegativeLedgerAmount(v)) {
+            const repaired = {
+              ...v,
+              ledgerEntries: normalizeLedgerEntries(v.ledgerEntries),
+            };
+            results.push(repaired);
+            recordsToRepair.push(repaired);
+          } else {
+            results.push(v);
+          }
           cursor.continue();
         } else {
+          if (recordsToRepair.length > 0) {
+            repairNegativeLedgersInStore(recordsToRepair);
+          }
           resolve(results);
         }
       };
@@ -442,6 +517,7 @@ export async function getVouchersByDateRange(
     const isSpecificFY = Boolean(financialYear && financialYear !== 'all');
 
     const results = [];
+    const recordsToRepair = [];
     const cursorReq = index.openCursor(
       IDBKeyRange.bound(
         [organizationId, companyKey, '', ''],
@@ -460,11 +536,25 @@ export async function getVouchersByDateRange(
           const matchesFrom = !fromTally || (vDateClean ? vDateClean >= fromTally : true);
           const matchesTo = !toTally || (vDateClean ? vDateClean <= toTally : true);
 
-          if (matchesFY && matchesFrom && matchesTo) {
-            results.push(v);
+          if (hasNegativeLedgerAmount(v)) {
+            const repaired = {
+              ...v,
+              ledgerEntries: normalizeLedgerEntries(v.ledgerEntries),
+            };
+            recordsToRepair.push(repaired);
+            if (matchesFY && matchesFrom && matchesTo) {
+              results.push(repaired);
+            }
+          } else {
+            if (matchesFY && matchesFrom && matchesTo) {
+              results.push(v);
+            }
           }
           cursor.continue();
         } else {
+          if (recordsToRepair.length > 0) {
+            repairNegativeLedgersInStore(recordsToRepair);
+          }
           resolve(results);
         }
       };

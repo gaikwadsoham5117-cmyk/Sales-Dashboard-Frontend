@@ -14,16 +14,27 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token) {
       localStorage.setItem('tally_auth_token', token);
-      if (!user) {
-        const payload = parseJwtPayload(token);
-        if (payload) {
-          const userObj = {
-            id: payload.userId || payload.sub,
-            email: payload.sub || 'user@tally.com',
-            roles: payload.role || role
+      const payload = parseJwtPayload(token);
+      if (payload) {
+        setUser((prev) => {
+          const orgId =
+            prev?.organizationId ||
+            prev?.orgId ||
+            payload.organizationId ||
+            payload.orgId ||
+            payload.organization ||
+            payload.org ||
+            '';
+          return {
+            id: prev?.id || payload.userId || payload.sub || payload.id,
+            email: prev?.email || payload.sub || payload.email || 'user@tally.com',
+            roles: prev?.roles || payload.role || role,
+            firstName: prev?.firstName || payload.firstName || '',
+            lastName: prev?.lastName || payload.lastName || '',
+            ...prev,
+            organizationId: orgId,
           };
-          setUser(userObj);
-        }
+        });
       }
     } else {
       localStorage.removeItem('tally_auth_token');
@@ -46,6 +57,14 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
+  const updateUser = (fields) => {
+    setUser((prev) => {
+      const next = { ...(prev || {}), ...fields };
+      localStorage.setItem('tally_auth_user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const login = (newToken, newRole, userObj = null) => {
     setToken(newToken);
     setRole(newRole);
@@ -57,7 +76,8 @@ export const AuthProvider = ({ children }) => {
         setUser({
           id: payload.userId || payload.sub,
           email: payload.sub || 'user@tally.com',
-          roles: newRole
+          roles: newRole,
+          organizationId: payload.organizationId || payload.orgId || payload.organization || ''
         });
       }
     }
@@ -80,7 +100,8 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated: !!token,
         login,
-        logout
+        logout,
+        updateUser
       }}
     >
       {children}

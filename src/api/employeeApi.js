@@ -38,3 +38,16 @@ export async function deleteEmployeeApi(employeeId) {
     throw new Error(msg);
   }
 }
+
+export async function getUsersByOrganizationApi(organizationId) {
+  try {
+    if (!organizationId) {
+      throw new Error('Organization ID is required to fetch users.');
+    }
+    const response = await axiosClient.get(`/api/lookup/user/${organizationId}/organizations`);
+    return response.data;
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data || err.message || 'Failed to fetch users.';
+    throw new Error(typeof msg === 'string' ? msg : 'Failed to fetch users.');
+  }
+}

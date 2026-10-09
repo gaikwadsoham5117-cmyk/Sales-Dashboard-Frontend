@@ -175,4 +175,110 @@ export function isValidISODate(dateStr) {
   return !isNaN(d.getTime());
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Ledger Entry Normalization Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalize a ledger entry amount to a positive number using Math.abs.
+ * Safely handles null, undefined, and non-numeric values without converting them to 0.
+ *
+ * @param {*} amount
+ * @returns {*}
+ */
+export function normalizeLedgerAmount(amount) {
+  if (amount == null) return amount;
+  const num = Number(amount);
+  if (Number.isNaN(num)) return amount;
+  return Math.abs(num);
+}
+
+/**
+ * Normalizes a single ledger entry object so its amount is positive.
+ * Preserves all other ledger fields intact.
+ *
+ * @param {Object} entry
+ * @returns {Object}
+ */
+export function normalizeLedgerEntry(entry) {
+  if (!entry || typeof entry !== 'object') return entry;
+  return {
+    ...entry,
+    amount: normalizeLedgerAmount(entry.amount),
+  };
+}
+
+/**
+ * Normalizes an array of ledger entries.
+ *
+ * @param {Array<Object>} [ledgerEntries]
+ * @returns {Array<Object>}
+ */
+export function normalizeLedgerEntries(ledgerEntries) {
+  if (!Array.isArray(ledgerEntries)) return [];
+  return ledgerEntries.map(normalizeLedgerEntry);
+}
+
+/**
+ * Check if a voucher contains any ledger entries with negative amounts.
+ *
+ * @param {Object} voucher
+ * @returns {boolean}
+ */
+export function hasNegativeLedgerAmount(voucher) {
+  if (!voucher || !Array.isArray(voucher.ledgerEntries)) return false;
+  return voucher.ledgerEntries.some(
+    (e) => e && e.amount != null && !Number.isNaN(Number(e.amount)) && Number(e.amount) < 0
+  );
+}
+
+/**
+ * Extract the effective sales turnover amount for a voucher from its ledger entries
+ * (specifically the party / customer ledger entry that represents the full bill amount),
+ * falling back to totalAmount / amount if ledger entries are not available.
+ *
+ * @param {Object} v - Sales Voucher object
+ * @returns {number}
+ */
+export function getVoucherTurnoverAmount(v) {
+  if (!v || typeof v !== 'object') return 0;
+
+  if (Array.isArray(v.ledgerEntries) && v.ledgerEntries.length > 0) {
+    const partyName = String(v.partyLedgerName || '').trim().toLowerCase();
+
+    // 1. Explicit partyLedger flag
+    let target = v.ledgerEntries.find((l) => l?.partyLedger === true);
+
+    // 2. Matches voucher's partyLedgerName
+    if (!target && partyName) {
+      target = v.ledgerEntries.find(
+        (l) => String(l?.ledgerName || '').trim().toLowerCase() === partyName
+      );
+    }
+
+    // 3. Has bill allocations (Party ledgers in Tally contain billAllocations)
+    if (!target) {
+      target = v.ledgerEntries.find(
+        (l) => Array.isArray(l?.billAllocations) && l.billAllocations.length > 0
+      );
+    }
+
+    // 4. First non-GST, non-roundoff ledger entry with positive amount, or first entry
+    if (!target) {
+      target =
+        v.ledgerEntries.find((l) => !l?.gstLedger && Number(l?.amount) > 0) ||
+        v.ledgerEntries[0];
+    }
+
+    if (target && target.amount != null) {
+      const amt = Math.abs(Number(target.amount));
+      if (!Number.isNaN(amt) && amt > 0) {
+        return amt;
+      }
+    }
+  }
+
+  return Number(v.totalAmount !== undefined ? v.totalAmount : (v.amount !== undefined ? v.amount : 0)) || 0;
+}
+
 

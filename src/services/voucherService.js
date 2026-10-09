@@ -31,6 +31,7 @@ import {
   getCachedCoverage,
   getVoucherUniqueKey,
   auditIndexedDBCoverage,
+  normalizeLedgerEntry,
 } from './indexeddb/index.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,7 +71,9 @@ export function normalizeVoucher(v) {
           amount: Number(item.amount) || 0,
         }))
       : [],
-    ledgerEntries: Array.isArray(v.ledgerEntries) ? v.ledgerEntries : [],
+    ledgerEntries: Array.isArray(v.ledgerEntries)
+      ? v.ledgerEntries.map(normalizeLedgerEntry)
+      : [],
     gstDetails: v.gstDetails && typeof v.gstDetails === 'object' ? v.gstDetails : {},
   };
 }
