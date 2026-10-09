@@ -2,8 +2,9 @@ import axiosClient from './axiosClient';
 
 export async function getMyAgentsApi() {
   try {
-    const response = await axiosClient.get('/api/agents');
-    return response.data || [];
+    const response = await axiosClient.get('/api/agents/organization/lookup/my');
+    const list = Array.isArray(response.data?.data) ? response.data.data : (Array.isArray(response.data) ? response.data : (response.data || []));
+    return list;
   } catch (err) {
     const msg = err.response?.data?.message || err.response?.data || err.message || 'Unable to fetch agents.';
     throw new Error(typeof msg === 'string' ? msg : 'Unable to fetch agents.');
