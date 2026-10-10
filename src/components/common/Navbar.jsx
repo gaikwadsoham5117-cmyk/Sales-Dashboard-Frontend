@@ -1,10 +1,10 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Menu, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Navbar() {
+export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
   const { user, role, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -27,18 +27,27 @@ export default function Navbar() {
   const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 h-14 flex items-center px-4 lg:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 transition-colors">
-      <div className="flex items-center justify-between w-full gap-4">
+    <header className="sticky top-0 z-40 h-14 flex items-center px-3 sm:px-4 lg:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 transition-colors">
+      <div className="flex items-center justify-between w-full gap-3 sm:gap-4">
 
-        {/* Left: Branding */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
+        {/* Left: Mobile menu toggle + Branding */}
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="md:hidden p-1.5 -ml-1 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:outline-none"
+            aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
+          >
+            {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+
           <img
             src="/logo1-removebg-preview.png"
             alt="Logo"
-            className="h-9 w-9 object-contain"
+            className="h-8 w-8 sm:h-9 sm:w-9 object-contain"
           />
           <div className="flex items-baseline gap-2">
-            <span className="font-bold text-sm text-gray-900 dark:text-gray-100 tracking-tight">
+            <span className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 tracking-tight">
               Tally Sales Analytics
             </span>
             <span className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 font-normal">

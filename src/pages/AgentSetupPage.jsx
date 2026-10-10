@@ -242,7 +242,7 @@ export default function AgentSetupPage() {
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-400">
               <span className="font-mono text-[10px] text-slate-400">java -version</span>
               <CopyButton text="java -version" label="Check Java" />
             </div>
@@ -271,7 +271,7 @@ export default function AgentSetupPage() {
                   <span>Target Folder:</span>
                   <CopyButton text="C:\tally_agent" label="Copy Path" />
                 </div>
-                <div className="bg-slate-950 px-2.5 py-1.5 rounded border border-slate-800 font-mono text-xs text-amber-300 truncate">
+                <div className="bg-slate-950 px-2.5 py-1.5 rounded border border-slate-800 font-mono text-xs text-amber-300 break-all">
                   C:\tally_agent
                 </div>
                 <p className="text-slate-400 pt-1">
@@ -284,7 +284,7 @@ export default function AgentSetupPage() {
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-400">
               <span className="text-slate-400">Create folder via CMD:</span>
               <CopyButton text="mkdir C:\tally_agent" label="mkdir" />
             </div>
@@ -313,7 +313,7 @@ export default function AgentSetupPage() {
                   <span>1. Open folder in CMD:</span>
                   <CopyButton text="cd /d C:\tally_agent" label="Copy" />
                 </div>
-                <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-xs text-slate-200 truncate">
+                <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-xs text-slate-200 break-all">
                   cd /d C:\tally_agent
                 </div>
 
@@ -321,13 +321,13 @@ export default function AgentSetupPage() {
                   <span>2. Run agent:</span>
                   <CopyButton text="java -jar tally-agent.jar" label="Copy" />
                 </div>
-                <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-xs text-emerald-400 truncate">
+                <div className="bg-slate-950 px-2 py-1 rounded border border-slate-800 font-mono text-xs text-emerald-400 break-all">
                   java -jar tally-agent.jar
                 </div>
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-400">
               <span className="text-slate-400">Run one-liner in CMD:</span>
               <CopyButton text="cd /d C:\tally_agent && java -jar tally-agent.jar" label="Copy One-Liner" />
             </div>

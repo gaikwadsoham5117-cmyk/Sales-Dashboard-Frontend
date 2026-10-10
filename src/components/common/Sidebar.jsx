@@ -3,14 +3,15 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, Users, Building2, CreditCard,
-  Server, BarChart3, UserPlus, LogOut,
+  Server, BarChart3, UserPlus, LogOut, X,
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose }) {
   const { role, user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    if (onClose) onClose();
     logout();
     navigate('/login');
   };
@@ -29,10 +30,36 @@ export default function Sidebar() {
     }`;
 
   return (
-    <aside
-      className="w-full md:w-[220px] flex-shrink-0 flex flex-col h-full"
-      style={{ backgroundColor: '#172033' }}
-    >
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 md:static md:z-auto w-[260px] md:w-[220px] flex-shrink-0 flex flex-col h-full transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none ${
+          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+        style={{ backgroundColor: '#172033' }}
+      >
+        {/* Mobile Header with close button */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <img src="/logo1-removebg-preview.png" alt="Logo" className="h-7 w-7 object-contain" />
+            <span className="font-bold text-xs text-white tracking-tight">Tally Analytics</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       {/* Top navigation — scrolls if needed */}
       <div className="flex-1 overflow-y-auto">
         {/* Nav items */}
@@ -43,7 +70,7 @@ export default function Sidebar() {
 
           {role === 'ADMIN' && (
             <>
-              <NavLink to="/admin" end className={linkClass}>
+              <NavLink to="/admin" end className={linkClass} onClick={onClose}>
                 <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Dashboard</span>
               </NavLink>
@@ -52,17 +79,17 @@ export default function Sidebar() {
                 Management
               </p>
 
-              <NavLink to="/admin/owners" className={linkClass}>
+              <NavLink to="/admin/owners" className={linkClass} onClick={onClose}>
                 <Users className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Owners</span>
               </NavLink>
 
-              <NavLink to="/admin/organizations" className={linkClass}>
+              <NavLink to="/admin/organizations" className={linkClass} onClick={onClose}>
                 <Building2 className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Organizations</span>
               </NavLink>
 
-              <NavLink to="/admin/subscriptions" className={linkClass}>
+              <NavLink to="/admin/subscriptions" className={linkClass} onClick={onClose}>
                 <CreditCard className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Subscriptions</span>
               </NavLink>
@@ -71,12 +98,12 @@ export default function Sidebar() {
 
           {role === 'OWNER' && (
             <>
-              <NavLink to="/owner" end className={linkClass}>
+              <NavLink to="/owner" end className={linkClass} onClick={onClose}>
                 <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Dashboard</span>
               </NavLink>
 
-              <NavLink to="/owner/sales" className={linkClass}>
+              <NavLink to="/owner/sales" className={linkClass} onClick={onClose}>
                 <BarChart3 className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Sales Data</span>
               </NavLink>
@@ -85,12 +112,12 @@ export default function Sidebar() {
                 Management
               </p>
 
-              <NavLink to="/owner/employees" className={linkClass}>
+              <NavLink to="/owner/employees" className={linkClass} onClick={onClose}>
                 <UserPlus className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Employees</span>
               </NavLink>
 
-              <NavLink to="/owner/agent-setup" className={linkClass}>
+              <NavLink to="/owner/agent-setup" className={linkClass} onClick={onClose}>
                 <Server className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Agent Setup</span>
               </NavLink>
@@ -99,12 +126,12 @@ export default function Sidebar() {
 
           {role === 'EMPLOYEE' && (
             <>
-              <NavLink to="/employee" end className={linkClass}>
+              <NavLink to="/employee" end className={linkClass} onClick={onClose}>
                 <LayoutDashboard className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Dashboard</span>
               </NavLink>
 
-              <NavLink to="/employee/sales" className={linkClass}>
+              <NavLink to="/employee/sales" className={linkClass} onClick={onClose}>
                 <BarChart3 className="w-[15px] h-[15px] flex-shrink-0" />
                 <span>Sales Data</span>
               </NavLink>
@@ -136,5 +163,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

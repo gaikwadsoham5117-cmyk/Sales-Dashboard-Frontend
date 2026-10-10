@@ -1,10 +1,17 @@
 import * as XLSX from 'xlsx';
 import { formatReadableDate } from './formatters';
+import { getVoucherTurnoverAmount } from '../services/indexeddb/helpers';
 
 export function exportVouchersToExcel(vouchers, fileName = 'Tally_Sales_Vouchers.xlsx') {
   // 1. Prepare Summary Sheet Data
   const summaryRows = vouchers.map((v, index) => {
-    const totalQty = (v.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const items = Array.isArray(v.items) ? v.items : [];
+    const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const taxableAmount = items.length > 0
+      ? items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
+      : (Number(v.totalAmount !== undefined ? v.totalAmount : (v.amount !== undefined ? v.amount : 0)) || 0);
+    const totalAmount = getVoucherTurnoverAmount(v);
+
     return {
       'S.No': index + 1,
       'Date': formatReadableDate(v.date),
@@ -13,9 +20,10 @@ export function exportVouchersToExcel(vouchers, fileName = 'Tally_Sales_Vouchers
       'Party Ledger Name': v.partyLedgerName || '',
       'Party Parent Name': v.partyParentName || '',
       'Voucher Type': v.voucherTypeName || 'Sales',
-      'Total Items': (v.items || []).length,
+      'Total Items': items.length,
       'Total Quantity': totalQty,
-      'Total Amount (₹)': v.totalAmount || 0,
+      'Taxable Amount (₹)': taxableAmount,
+      'Total Amount (₹)': totalAmount,
     };
   });
 
@@ -76,6 +84,7 @@ export function exportVouchersToExcel(vouchers, fileName = 'Tally_Sales_Vouchers
     { wch: 14 },  // Voucher Type
     { wch: 12 },  // Total Items
     { wch: 14 },  // Total Quantity
+    { wch: 18 },  // Taxable Amount
     { wch: 18 },  // Total Amount
   ];
 

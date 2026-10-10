@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatReadableDate } from '../../utils/formatters';
 import { exportVouchersToExcel } from '../../utils/excelExport';
+import { getVoucherTurnoverAmount } from '../../services/indexeddb/helpers';
 
 export default function SalesVoucherTable({ vouchers = [] }) {
   const [expandedRows, setExpandedRows] = useState({});
@@ -37,6 +38,60 @@ export default function SalesVoucherTable({ vouchers = [] }) {
   const getItems = (v) => (Array.isArray(v?.items) ? v.items : []);
   const getLedgerEntries = (v) => (Array.isArray(v?.ledgerEntries) ? v.ledgerEntries : []);
   const getBillAllocations = (l) => (Array.isArray(l?.billAllocations) ? l.billAllocations : []);
+
+  const getTaxableAmount = (v) => {
+    const items = getItems(v);
+    if (items.length > 0) {
+      const sum = items.reduce((t, item) => t + Number(item?.amount ?? 0), 0);
+      if (sum > 0) return sum;
+    }
+    return Number(v?.totalAmount !== undefined ? v.totalAmount : (v?.amount !== undefined ? v.amount : 0)) || 0;
+  };
+
+  const getTotalAmount = (v) => {
+    if (!v || typeof v !== 'object') return 0;
+
+    const ledgers = getLedgerEntries(v);
+    if (ledgers.length > 0) {
+      const partyName = String(v.partyLedgerName || '').trim().toLowerCase();
+
+      // 1. Explicit partyLedger flag
+      let target = ledgers.find((l) => l?.partyLedger === true && Number(l?.amount) !== 0);
+
+      // 2. Matches voucher's partyLedgerName
+      if (!target && partyName) {
+        target = ledgers.find(
+          (l) => String(l?.ledgerName || '').trim().toLowerCase() === partyName && Number(l?.amount) !== 0
+        );
+      }
+
+      // 3. Has bill allocations
+      if (!target) {
+        target = ledgers.find(
+          (l) => Array.isArray(l?.billAllocations) && l.billAllocations.length > 0 && Number(l?.amount) !== 0
+        );
+      }
+
+      // 4. Non-GST entry with maximum absolute amount
+      if (!target) {
+        const nonGst = ledgers.filter((l) => !l?.gstLedger && Number(l?.amount) !== 0);
+        if (nonGst.length > 0) {
+          target = nonGst.reduce((max, curr) =>
+            Math.abs(Number(curr?.amount || 0)) > Math.abs(Number(max?.amount || 0)) ? curr : max
+          , nonGst[0]);
+        }
+      }
+
+      if (target && target.amount != null) {
+        const amt = Math.abs(Number(target.amount));
+        if (!Number.isNaN(amt) && amt > 0) {
+          return amt;
+        }
+      }
+    }
+
+    return getVoucherTurnoverAmount(v);
+  };
 
   const getGSTDetails = (v) => ({
     applicable: Boolean(v?.gstDetails?.applicable),
@@ -138,7 +193,8 @@ export default function SalesVoucherTable({ vouchers = [] }) {
               <th className={`${thBase} text-left`}>Voucher Type</th>
               <th className={`${thBase} text-left`}>Voucher No.</th>
               <th className={`${thBase} text-left`}>Party</th>
-              <th className={`${thBase} text-right`}>Amount</th>
+              <th className={`${thBase} text-right`}>Taxable Amount</th>
+              <th className={`${thBase} text-right`}>Total Amount</th>
               <th className={`${thBase} w-10 text-center`}>Detail</th>
             </tr>
           </thead>
@@ -146,7 +202,7 @@ export default function SalesVoucherTable({ vouchers = [] }) {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {paginatedVouchers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500 text-xs font-medium">
+                <td colSpan={8} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500 text-xs font-medium">
                   No sales vouchers found matching your filter criteria.
                 </td>
               </tr>
@@ -160,6 +216,8 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                 const gst = getGSTDetails(voucher);
                 const totalGST = getTotalGST(voucher);
                 const totalQty = getTotalQuantity(voucher);
+                const taxableAmount = getTaxableAmount(voucher);
+                const totalAmount = getTotalAmount(voucher);
 
                 return (
                   <React.Fragment key={rowKey}>
@@ -204,8 +262,11 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                           ) : null}
                         </div>
                       </td>
-                      <td className={`${tdBase} text-right font-bold text-green-700 dark:text-green-400 text-sm`}>
-                        {formatCurrency(Number(voucher?.totalAmount ?? 0))}
+                      <td className={`${tdBase} text-right font-medium text-gray-700 dark:text-gray-300 font-mono text-xs sm:text-sm whitespace-nowrap`}>
+                        {formatCurrency(taxableAmount)}
+                      </td>
+                      <td className={`${tdBase} text-right font-bold text-green-700 dark:text-green-400 font-mono text-xs sm:text-sm whitespace-nowrap`}>
+                        {formatCurrency(totalAmount)}
                       </td>
                       <td className={`${tdBase} text-center`}>
                         <button className="p-1 rounded-md text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
@@ -219,7 +280,7 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                     {/* Expanded panel */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                        <td colSpan={8} className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                           <div className="px-6 py-5 space-y-5">
 
                             {/* Voucher Metadata Overview */}
@@ -285,11 +346,11 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                                     </tbody>
                                     <tfoot>
                                       <tr className="bg-gray-50 dark:bg-gray-900/60 border-t border-gray-200 dark:border-gray-700">
-                                        <td colSpan={3} className="px-3 py-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Total</td>
+                                        <td colSpan={3} className="px-3 py-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Total Items (Taxable)</td>
                                         <td className="px-3 py-2 text-right font-bold text-gray-700 dark:text-gray-200 font-mono">{totalQty}</td>
                                         <td colSpan={3} />
-                                        <td className="px-3 py-2 text-right font-bold text-green-700 dark:text-green-400 font-mono">
-                                          {formatCurrency(Number(voucher?.totalAmount ?? 0))}
+                                        <td className="px-3 py-2 text-right font-bold text-gray-800 dark:text-gray-200 font-mono">
+                                          {formatCurrency(taxableAmount)}
                                         </td>
                                       </tr>
                                     </tfoot>
@@ -414,18 +475,22 @@ export default function SalesVoucherTable({ vouchers = [] }) {
                             </div>
 
                             {/* SECTION 4 — Summary Footer */}
-                            <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
                               <div className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-center">
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Items</p>
-                                <p className="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5">{items.length}</p>
-                              </div>
-                              <div className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-center">
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Total Qty</p>
-                                <p className="text-lg font-bold text-gray-700 dark:text-gray-200 mt-0.5">{totalQty}</p>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Items / Qty</p>
+                                <p className="text-base font-bold text-amber-600 dark:text-amber-400 mt-0.5">{items.length} ({totalQty})</p>
                               </div>
                               <div className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-center">
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Ledger Entries</p>
-                                <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5">{ledgerEntries.length}</p>
+                                <p className="text-base font-bold text-blue-600 dark:text-blue-400 mt-0.5">{ledgerEntries.length}</p>
+                              </div>
+                              <div className="rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-center">
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">Taxable Amount</p>
+                                <p className="text-base font-bold text-gray-800 dark:text-gray-200 mt-0.5 font-mono">{formatCurrency(taxableAmount)}</p>
+                              </div>
+                              <div className="rounded-lg bg-green-50/60 dark:bg-green-900/20 border border-green-200 dark:border-green-800/40 p-3 text-center">
+                                <p className="text-[10px] text-green-700 dark:text-green-400 uppercase tracking-wider font-semibold">Total Amount</p>
+                                <p className="text-base font-bold text-green-700 dark:text-green-400 mt-0.5 font-mono">{formatCurrency(totalAmount)}</p>
                               </div>
                             </div>
 

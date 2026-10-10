@@ -2,7 +2,7 @@ import axiosClient from './axiosClient';
 
 export async function createEmployeeApi(data) {
   try {
-    const response = await axiosClient.post('/api/owner/employees', data);
+    const response = await axiosClient.post('/api/employees/register', data);
     return response.data;
   } catch (err) {
     const raw = err.response?.data?.message || err.response?.data || err.message || '';
