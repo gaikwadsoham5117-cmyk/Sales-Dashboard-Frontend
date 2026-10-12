@@ -5,7 +5,7 @@ import axios from 'axios';
 //
 // Production:
 // Directly calls the deployed Spring Boot backend.
-const API_BASE_URL = import.meta.env.DEV
+const API_BASE_URL = import.meta.env?.DEV
   ? ''
   : 'https://sales-dashboard-backend-lo96.onrender.com';
 

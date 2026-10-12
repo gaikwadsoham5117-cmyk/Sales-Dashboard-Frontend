@@ -25,6 +25,7 @@ import {
   markPeriodInProgress,
   markPeriodComplete,
   markPeriodFailed,
+  isDateRangeCached,
   upsertCompany,
   getFinancialYear,
   normaliseCompanyKey,
@@ -104,10 +105,10 @@ export function clearMemoryCache() {
 }
 
 /**
- * Generate all required 15-day chunks for a given year and month filter.
+ * Generate all required 4-part balanced chunks for a given year and month filter.
  *
- * For month === 'all': generates 24 chunks (months 1..12, 01-15 & 16-lastDay).
- * For a specific month: generates 2 chunks (01-15 & 16-lastDay).
+ * For month === 'all': generates 48 chunks (months 1..12, 4 balanced intervals per month).
+ * For a specific month: generates 4 chunks (each covering 7 or 8 contiguous days).
  *
  * @param {number} year
  * @param {string} month - 'all' or '1'..'12'
@@ -150,7 +151,7 @@ export function getRequiredChunks(year, month) {
 }
 
 /**
- * Deduplicate vouchers by unique key while preserving array order.
+ * Deduplicate vouchers by stable identifier (preferring GUID) while preserving array order.
  *
  * @param {Array<object>} vouchers
  * @returns {Array<object>}
@@ -159,7 +160,9 @@ function deduplicateVouchers(vouchers) {
   const seen = new Set();
   const deduped = [];
   for (const v of vouchers) {
-    const key = v._id || getVoucherUniqueKey(v);
+    if (!v) continue;
+    const rawGuid = v.guid ? String(v.guid).trim() : '';
+    const key = rawGuid || v._id || getVoucherUniqueKey(v);
     if (key && !seen.has(key)) {
       seen.add(key);
       deduped.push(v);
@@ -253,7 +256,11 @@ export async function loadSalesVouchers({
   // Inspect syncMetadata for each required chunk
   for (const chunk of requiredChunks) {
     const meta = await getSyncMetadata(orgId, targetComp, chunk.fy, chunk.from, chunk.to);
-    chunk.isCached = Boolean(meta && meta.status === 'COMPLETE');
+    let isCached = Boolean(meta && meta.status === 'COMPLETE');
+    if (!isCached) {
+      isCached = await isDateRangeCached(orgId, targetComp, chunk.fy, chunk.from, chunk.to);
+    }
+    chunk.isCached = isCached;
     chunk.meta = meta;
   }
 

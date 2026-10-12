@@ -89,6 +89,10 @@ export {
   clearMemoryCache,
   getRequiredChunks,
 } from '../voucherService.js';
+export {
+  splitDateRange,
+  getMonthSplitDateRanges,
+} from '../../api/tallyApi.js';
 
 // ── Sync & Reconciliation Service ───────────────────────────────────────────
 export {

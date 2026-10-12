@@ -29,27 +29,83 @@ export function getMonthDateRange(year, monthIndex) {
   return { from, to };
 }
 
-// Helper to get 15-day split date ranges (YYYY-MM-DD) for a given month in a year
-// Split 1: 01 to 15
-// Split 2: 16 to last day of month
+/**
+ * Splits an arbitrary date range (YYYY-MM-DD to YYYY-MM-DD) into balanced, contiguous intervals.
+ * Handles leap years, year transitions, and shorter custom periods correctly.
+ * Start and end dates are inclusive. Requests do not overlap and do not leave missing dates.
+ *
+ * @param {string} fromDateStr - Start date in YYYY-MM-DD format (inclusive)
+ * @param {string} toDateStr   - End date in YYYY-MM-DD format (inclusive)
+ * @param {number} [targetParts=4] - Desired number of intervals (default: 4)
+ * @returns {Array<{ from: string, to: string, label: string }>}
+ */
+export function splitDateRange(fromDateStr, toDateStr, targetParts = 4) {
+  if (!fromDateStr || !toDateStr || fromDateStr > toDateStr) return [];
+
+  const [sy, sm, sd] = fromDateStr.split('-').map(Number);
+  const [ey, em, ed] = toDateStr.split('-').map(Number);
+
+  const startUTC = Date.UTC(sy, sm - 1, sd);
+  const endUTC = Date.UTC(ey, em - 1, ed);
+  const msPerDay = 24 * 60 * 60 * 1000;
+
+  const totalDays = Math.round((endUTC - startUTC) / msPerDay) + 1;
+  if (totalDays <= 0) return [];
+
+  const parts = Math.min(Math.max(1, targetParts), totalDays);
+  const baseSize = Math.floor(totalDays / parts);
+  const remainder = totalDays % parts;
+
+  const intervals = [];
+  let currentStartUTC = startUTC;
+
+  const toISODate = (utcMs) => {
+    const d = new Date(utcMs);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  for (let i = 0; i < parts; i++) {
+    const len = baseSize + (i < remainder ? 1 : 0);
+    const currentEndUTC = currentStartUTC + (len - 1) * msPerDay;
+
+    const fromISO = toISODate(currentStartUTC);
+    const toISO = toISODate(currentEndUTC);
+
+    const dStart = new Date(currentStartUTC);
+    const dEnd = new Date(currentEndUTC);
+    const startDayStr = String(dStart.getUTCDate()).padStart(2, '0');
+    const endDayStr = String(dEnd.getUTCDate()).padStart(2, '0');
+
+    intervals.push({
+      from: fromISO,
+      to: toISO,
+      label: `${startDayStr} - ${endDayStr}`,
+    });
+
+    currentStartUTC = currentEndUTC + msPerDay;
+  }
+
+  return intervals;
+}
+
+// Helper to get 4 balanced date ranges (YYYY-MM-DD) for a given month in a year
+// Partition the days into four balanced, contiguous intervals (7 or 8 days each).
+// E.g. 30-day month: 01-08, 09-16, 17-23, 24-30 (8, 8, 7, 7 days)
+//      31-day month: 01-08, 09-16, 17-24, 25-31 (8, 8, 8, 7 days)
+//      28-day Feb:   01-07, 08-14, 15-21, 22-28 (7, 7, 7, 7 days)
+//      29-day Feb:   01-08, 09-15, 16-22, 23-29 (8, 7, 7, 7 days)
 export function getMonthSplitDateRanges(year, monthIndex) {
   const y = Number(year);
   const m = Number(monthIndex);
   const mStr = String(m).padStart(2, '0');
   const lastDay = new Date(y, m, 0).getDate();
+  const from = `${y}-${mStr}-01`;
+  const to = `${y}-${mStr}-${String(lastDay).padStart(2, '0')}`;
 
-  return [
-    {
-      from: `${y}-${mStr}-01`,
-      to: `${y}-${mStr}-15`,
-      label: '01 - 15',
-    },
-    {
-      from: `${y}-${mStr}-16`,
-      to: `${y}-${mStr}-${String(lastDay).padStart(2, '0')}`,
-      label: `16 - ${lastDay}`,
-    },
-  ];
+  return splitDateRange(from, to, 4);
 }
 
 // Fetch the list of companies loaded in Tally: GET /api/company/all
@@ -110,10 +166,40 @@ export async function getSalesVouchersDateRangeApi(companyName = '', fromDate, t
   }
 }
 
+/**
+ * Deduplicate raw vouchers by stable identifier (preferring GUID) while preserving array order.
+ *
+ * @param {Array<object>} vouchers
+ * @returns {Array<object>}
+ */
+function deduplicateRawVouchers(vouchers) {
+  const seen = new Set();
+  const deduped = [];
+  for (const v of vouchers) {
+    if (!v) continue;
+    const rawGuid = v.guid ? String(v.guid).trim() : '';
+    const key =
+      rawGuid ||
+      (v._id ? String(v._id).trim() : '') ||
+      (v.masterId ? `MID_${String(v.masterId).trim()}` : '') ||
+      (v.alterId ? `AID_${String(v.alterId).trim()}` : '') ||
+      (v.id ? `ID_${String(v.id).trim()}` : '');
+
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      deduped.push(v);
+    } else if (!key) {
+      deduped.push(v);
+    }
+  }
+  return deduped;
+}
+
 // Orchestrator function:
-// Splits each requested month into 15-day chunks (01-15 and 16-lastDay) to avoid overwhelming the server or hit payload limits.
-// When month === 'all', calls date-range API for each 15-day range across all 12 months sequentially (24 requests total).
-// When a specific month is selected (e.g. '5' for May), calls date-range API for both 15-day ranges for that month (2 requests total).
+// Splits each requested month into 4 balanced chunks (01-08, 09-16, 17-23/24, 24/25-lastDay)
+// to avoid overwhelming the server or hitting payload limits / timeouts.
+// When month === 'all', calls date-range API for each 7-8 day range across all 12 months sequentially (48 requests total).
+// When a specific month is selected (e.g. '5' for May), calls date-range API for all 4 ranges for that month (4 requests total).
 //
 // onProgress(progressInfo)         — called before each chunk fetch (existing behaviour, unchanged)
 // onChunkReceived(chunkVouchers, rangeFrom, rangeTo, stepInfo)
@@ -129,7 +215,7 @@ export async function fetchSalesVouchersForPeriodApi(
 ) {
   if (month === 'all' || !month) {
     const combinedVouchers = [];
-    const totalSteps = 24;
+    const totalSteps = 48;
     let stepCount = 0;
 
     for (let m = 1; m <= 12; m++) {
@@ -161,7 +247,7 @@ export async function fetchSalesVouchersForPeriodApi(
         }
       }
     }
-    return combinedVouchers;
+    return deduplicateRawVouchers(combinedVouchers);
   } else {
     const monthObj = MONTH_OPTIONS.find((opt) => opt.value === String(month));
     const monthName = monthObj ? monthObj.label : `Month ${month}`;
@@ -192,7 +278,7 @@ export async function fetchSalesVouchersForPeriodApi(
         combinedVouchers.push(...data);
       }
     }
-    return combinedVouchers;
+    return deduplicateRawVouchers(combinedVouchers);
   }
 }
 
